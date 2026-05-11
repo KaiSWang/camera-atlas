@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Encoder — Camera Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Noto+Serif+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>(function(){try{var s=parseInt(localStorage.getItem('webatlas_text_size'),10);var a=[15,16,17,18,19,20,22,24];if(!isNaN(s)&&s>=0&&s<a.length){document.documentElement.style.setProperty('--reader-fz',a[s]+'px');}}catch(e){}})();</script>
+<link rel="stylesheet" href="style.css">
+<script defer src="reader.js"></script>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="container">
+    <div class="top-bar-inner">
+      <a href="index.html" class="logo">⬢ Camera Atlas</a>
+      <nav>
+        <a href="index.html">總目錄</a>
+        <a href="ch09-encoder.html" class="active">Encoder</a>
+        <a href="glossary.html">詞彙表</a>
+      </nav>
+      <span>Vol.09</span>
+      <div class="font-control" role="group" aria-label="字體大小">
+        <button type="button" class="fz-btn" data-action="dec" aria-label="縮小字體">A<span class="fz-sym">−</span></button>
+        <button type="button" class="fz-btn" data-action="inc" aria-label="放大字體">A<span class="fz-sym">+</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="kicker">
+      <span class="dot"></span>
+      Vol. 09 · Encoder
+    </div>
+    <h1>Encoder<br>H.264、HEVC、AV1 <em>怎麼把 4K 壓進 50MB</em></h1>
+    <p class="hero-sub">
+      ISP 完成的 YUV 影像是<strong>未壓縮</strong>的——4K 30fps 10-bit YUV 大約 9Gbps,
+      錄一分鐘要 4GB。Encoder 必須把它壓縮 100~1000 倍。這一章從 I/P/B frame 講到 rate control,
+      帶上智慧眼鏡關心的功耗與延遲取捨。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 01 · 壓縮的兩個維度</div>
+    <h2>Intra 與 Inter <em>空間冗餘 vs 時間冗餘</em></h2>
+    <p class="lead">
+      影片壓縮利用兩種冗餘:<strong>(1) 空間冗餘</strong>——同一張圖內鄰近 pixel 相似(intra prediction);
+      <strong>(2) 時間冗餘</strong>——前後幀大部分內容差不多(inter prediction)。
+      所有現代 codec 都在這兩條路上不斷精進。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ I / P / B frame 三種畫面類型</div>
+      <svg viewBox="0 0 800 240" xmlns="http://www.w3.org/2000/svg">
+        <!-- Frame sequence -->
+        <g>
+          <rect x="60" y="80" width="70" height="80" rx="4" fill="#8b3a1e" opacity="0.7" stroke="#d9cfbf"/>
+          <text x="95" y="115" fill="#fff" font-family="Source Serif 4" font-size="20" text-anchor="middle" font-weight="600">I</text>
+          <text x="95" y="135" fill="#fff" font-family="Source Serif 4" font-size="10" text-anchor="middle">關鍵幀</text>
+
+          <rect x="155" y="80" width="70" height="80" rx="4" fill="#b8860b" opacity="0.7" stroke="#d9cfbf"/>
+          <text x="190" y="115" fill="#fff" font-family="Source Serif 4" font-size="20" text-anchor="middle" font-weight="600">B</text>
+          <text x="190" y="135" fill="#fff" font-family="Source Serif 4" font-size="10" text-anchor="middle">雙向</text>
+
+          <rect x="250" y="80" width="70" height="80" rx="4" fill="#b8860b" opacity="0.7" stroke="#d9cfbf"/>
+          <text x="285" y="115" fill="#fff" font-family="Source Serif 4" font-size="20" text-anchor="middle" font-weight="600">B</text>
+          <text x="285" y="135" fill="#fff" font-family="Source Serif 4" font-size="10" text-anchor="middle">雙向</text>
+
+          <rect x="345" y="80" width="70" height="80" rx="4" fill="#2d6a3e" opacity="0.7" stroke="#d9cfbf"/>
+          <text x="380" y="115" fill="#fff" font-family="Source Serif 4" font-size="20" text-anchor="middle" font-weight="600">P</text>
+          <text x="380" y="135" fill="#fff" font-family="Source Serif 4" font-size="10" text-anchor="middle">前向</text>
+
+          <rect x="440" y="80" width="70" height="80" rx="4" fill="#b8860b" opacity="0.7" stroke="#d9cfbf"/>
+          <text x="475" y="115" fill="#fff" font-family="Source Serif 4" font-size="20" text-anchor="middle" font-weight="600">B</text>
+
+          <rect x="535" y="80" width="70" height="80" rx="4" fill="#2d6a3e" opacity="0.7" stroke="#d9cfbf"/>
+          <text x="570" y="115" fill="#fff" font-family="Source Serif 4" font-size="20" text-anchor="middle" font-weight="600">P</text>
+
+          <rect x="630" y="80" width="70" height="80" rx="4" fill="#8b3a1e" opacity="0.7" stroke="#d9cfbf"/>
+          <text x="665" y="115" fill="#fff" font-family="Source Serif 4" font-size="20" text-anchor="middle" font-weight="600">I</text>
+        </g>
+
+        <!-- Reference arrows -->
+        <path d="M155 60 Q120 30 95 60" stroke="#2d6a3e" stroke-width="1.5" fill="none" marker-end="url(#ae)"/>
+        <path d="M345 60 Q220 25 95 60" stroke="#2d6a3e" stroke-width="1.5" fill="none" marker-end="url(#ae)"/>
+        <path d="M250 200 Q200 220 95 175" stroke="#b8860b" stroke-width="1.5" fill="none" marker-end="url(#ay)"/>
+        <path d="M250 200 Q310 220 380 175" stroke="#b8860b" stroke-width="1.5" fill="none" marker-end="url(#ay)"/>
+
+        <text x="400" y="40" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">參考前面已解碼的幀</text>
+        <text x="400" y="220" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">B frame 同時參考前後</text>
+
+        <defs>
+          <marker id="ae" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#2d6a3e"/>
+          </marker>
+          <marker id="ay" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#b8860b"/>
+          </marker>
+        </defs>
+      </svg>
+      <p class="diagram-caption">典型 GOP 結構:I-B-B-P-B-P-...-I,每隔 1~2 秒一個 I frame。I frame 大、P frame 中、B frame 小但需要儲存後續幀才能編碼。</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">I</div>
+        <div class="step-content">
+          <h3>I frame(Intra)— 關鍵幀</h3>
+          <p>
+            <strong>只用空間壓縮</strong>,跟其他幀無關。檔案大,但解碼不依賴前後幀,所以是
+            <strong>「seek 點」</strong>——你拖動進度條時,player 跳到最近的 I frame 才能開始解碼。
+            通常每 1~2 秒插一個(GOP size = 30~60)。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">P</div>
+        <div class="step-content">
+          <h3>P frame(Predicted)— 前向參考</h3>
+          <p>
+            參考<strong>前面已解碼的 I 或 P frame</strong>,只存「差異 + 運動向量」。
+            檔案大幅變小(可能只有 I frame 的 1/10)。但解碼時必須先有參考幀,壞了一個 P frame
+            後面的全部依賴它解不出來,所以對<strong>傳輸錯誤敏感</strong>。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">B</div>
+        <div class="step-content">
+          <h3>B frame(Bi-directional)— 雙向參考</h3>
+          <p>
+            <strong>同時參考前後幀</strong>,壓縮比最高(I frame 的 1/30)。代價:
+            <strong>(1) encoder 必須延遲</strong>——要拿到「未來」的幀才能編碼當前的 B frame;
+            <strong>(2) decoder 同樣有延遲</strong>。所以串流即時應用(視訊通話、直播)幾乎不用 B frame。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">智慧眼鏡為什麼幾乎不用 B frame</div>
+      <ul>
+        <li><strong>B frame 引入 encoder latency</strong>——至少 1~2 幀,即時 streaming 不能容忍</li>
+        <li><strong>編碼複雜度更高</strong>,功耗加成顯著</li>
+        <li>所以 IPPPP 結構在 low-latency 場景更常見,雖然壓縮比稍差</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 02 · 三大 codec 比較</div>
+    <h2>H.264 → HEVC → AV1 <em>每代壓縮比提升 50%</em></h2>
+    <p class="lead">
+      每一代 codec 大約把同畫質的 bitrate 降一半。但<strong>每一代運算量翻倍</strong>,
+      授權費也是議題。手機選哪個,是商業 + 技術的綜合決定。
+    </p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Codec</th>
+          <th>標準年</th>
+          <th>同畫質 bitrate</th>
+          <th>授權</th>
+          <th>4K 加速</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>H.264 / AVC</strong></td>
+          <td>2003</td>
+          <td>100%(基準)</td>
+          <td>有 patent pool</td>
+          <td>所有手機</td>
+        </tr>
+        <tr>
+          <td><strong>H.265 / HEVC</strong></td>
+          <td>2013</td>
+          <td>~50%</td>
+          <td>三個 pool + 個別</td>
+          <td>2015 起旗艦</td>
+        </tr>
+        <tr>
+          <td><strong>AV1</strong></td>
+          <td>2018</td>
+          <td>~30-40%</td>
+          <td>免授權(AOMedia)</td>
+          <td>2022 起部分旗艦</td>
+        </tr>
+        <tr>
+          <td><strong>H.266 / VVC</strong></td>
+          <td>2020</td>
+          <td>~25%</td>
+          <td>授權複雜</td>
+          <td>2024 開始試水</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="tech-callout">
+      <div class="ct-label">手機怎麼選 codec</div>
+      <ul>
+        <li><strong>錄影預設 HEVC</strong>——iPhone 從 iOS 11 起預設、Android 旗艦也跟進</li>
+        <li><strong>但分享給「不知名裝置」時轉 H.264</strong>——AirDrop/分享時自動轉碼,以免對方不支援</li>
+        <li><strong>AV1 仍是 decode 為主</strong>——多數手機可以解碼(看 YouTube)但 encoder 還少</li>
+        <li><strong>智慧眼鏡偏 H.264</strong>——功耗、延遲、相容性綜合最優,只在高品質模式上 HEVC</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 03 · Motion estimation</div>
+    <h2>Encoder 最重的活 <em>找出畫面在哪</em></h2>
+    <p class="lead">
+      P frame 與 B frame 的核心是<strong>motion estimation(ME)</strong>:把當前 macroblock(16×16 或更大)
+      到參考幀中<strong>「搜尋最像的位置」</strong>,差值編進去 + 存運動向量。這個搜尋是 encoder
+      最耗運算的部分,通常吃整體 50% 以上 cycles。
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">01</div>
+        <div class="step-content">
+          <h3>Full search(暴力)</h3>
+          <p>
+            搜尋窗口內每個位置都試一次,算 SAD(sum of absolute difference)。
+            最準但<strong>運算爆炸</strong>——±32 像素搜尋 = 4225 個位置 × 256 pixel = 100 萬次運算/macroblock。
+            一張 4K 有 32000 個 macroblock,30fps 就是<strong>每秒一兆次運算</strong>。
+            硬體 encoder 才扛得住。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">02</div>
+        <div class="step-content">
+          <h3>Diamond / hex search(快速)</h3>
+          <p>
+            從中心開始,試 8 個方向,選最好的方向再試 8 個,迭代直到收斂。
+            運算量降兩個數量級,但偶爾會卡在局部最佳解。軟體 encoder(x264、x265)
+            幾乎都用這類方法。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">03</div>
+        <div class="step-content">
+          <h3>分層搜尋(Hierarchical)</h3>
+          <p>
+            硬體 encoder 主流:把畫面縮成多層金字塔,從最小尺寸開始大範圍搜尋,
+            找到粗略位置後逐層 refine。<strong>運算量與準確度的平衡點</strong>,
+            手機 SoC 的 video engine 大多如此。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 04 · Rate Control</div>
+    <h2>怎麼讓檔案大小 <em>不爆炸又畫質穩定</em></h2>
+    <p class="lead">
+      Rate control 決定<strong>每個 frame、每個 macroblock 該分多少 bit</strong>。
+      畫面動的多就多花一點、靜態場景就省一點。常見模式三種:CBR、VBR、CRF。
+    </p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>模式</th>
+          <th>目標</th>
+          <th>適合場景</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>CBR(constant bitrate)</strong></td>
+          <td>固定 bitrate</td>
+          <td>串流、視訊通話</td>
+        </tr>
+        <tr>
+          <td><strong>VBR(variable bitrate)</strong></td>
+          <td>固定平均 bitrate,瞬時可變</td>
+          <td>檔案錄影(YouTube 上傳)</td>
+        </tr>
+        <tr>
+          <td><strong>CRF(constant rate factor)</strong></td>
+          <td>固定畫質,bitrate 自動調</td>
+          <td>離線壓制、影視後製</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="tech-callout">
+      <div class="ct-label">Rate control 的工程現實</div>
+      <ul>
+        <li><strong>手機錄影通常用 VBR</strong>——平均 bitrate target、瞬時彈性,品質好且檔案不爆</li>
+        <li><strong>智慧眼鏡 streaming 用 CBR</strong>——網路 bandwidth 有限,不能瞬時 spike</li>
+        <li><strong>Buffer underrun / overrun</strong>是 rate control 的兩個失敗模式,encoder 內部有 virtual buffer 監控</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 05 · Encoder 在系統中的位置</div>
+    <h2>硬體 vs 軟體 encoder <em>差距比你想的大</em></h2>
+    <p class="lead">
+      Smartphone SoC 內都有<strong>專用 video encoder hardware</strong>(MediaTek 的 MDLA video、
+      Qualcomm 的 Venus engine)。它跟跑在 CPU 上的軟體 encoder 有本質差異。
+    </p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>面向</th>
+          <th>HW encoder</th>
+          <th>SW encoder(x264 等)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>功耗</strong></td>
+          <td>低(專用電路)</td>
+          <td>高(通用 CPU)</td>
+        </tr>
+        <tr>
+          <td><strong>速度</strong></td>
+          <td>即時(4K 60fps)</td>
+          <td>依設定,通常慢於即時</td>
+        </tr>
+        <tr>
+          <td><strong>畫質</strong></td>
+          <td>同 bitrate 略遜</td>
+          <td>調整空間大、品質可極致</td>
+        </tr>
+        <tr>
+          <td><strong>支援工具</strong></td>
+          <td>固定子集</td>
+          <td>標準完整功能</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      所以手機錄影一定用 HW encoder,但<strong>YouTube 上傳服務</strong>會在雲端用 SW encoder 重新壓縮——
+      壓縮效率更高,可以提供更小的檔案給每個觀看者。這也是「YouTube 上的影片畫質不如原檔」的原因。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 06 · 本章重點回顧</div>
+    <h2>Encoder <em>系統工程師必答</em></h2>
+
+    <div class="scenario-card">
+      <div class="label">面試題</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span><strong>I / P / B frame</strong>——關鍵幀 / 前向參考 / 雙向參考,壓縮比反向遞增</span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span><strong>低延遲場景不用 B frame</strong>——智慧眼鏡 streaming、視訊通話都是 IPPP</span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span><strong>每代 codec 壓縮比約提升 50%,運算翻倍</strong></span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span><strong>Motion estimation 是 encoder 最耗運算的部分</strong></span>
+        </div>
+        <div class="action-line">
+          <span class="num">5</span>
+          <span class="arrow">→</span>
+          <span><strong>Rate control:CBR / VBR / CRF</strong>,手機錄影主用 VBR、串流用 CBR</span>
+        </div>
+        <div class="action-line">
+          <span class="num">6</span>
+          <span class="arrow">→</span>
+          <span><strong>HW encoder 必要</strong>——CPU 軟體編碼太燒電,即時錄影不可行</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="chapter-nav">
+  <div class="container">
+    <div class="chapter-nav-grid">
+      <a href="ch08-video-pipeline.html" class="nav-card prev">
+        <div class="label">Prev</div>
+        <h4>Video Pipeline 與穩定化</h4>
+        <p>OIS / EIS、frame rate 控制。</p>
+      </a>
+      <a href="ch10-camera-ai.html" class="nav-card next">
+        <div class="label">Next</div>
+        <h4>Camera-AI 與 Semantic ISP</h4>
+        <p>NPU 加速、semantic segmentation、AI denoise。</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Camera Atlas · Complete Edition
+  </div>
+</footer>
+
+</body>
+</html>

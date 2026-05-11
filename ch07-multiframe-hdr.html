@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>多幀融合、HDR 與夜景模式 — Camera Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Noto+Serif+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>(function(){try{var s=parseInt(localStorage.getItem('webatlas_text_size'),10);var a=[15,16,17,18,19,20,22,24];if(!isNaN(s)&&s>=0&&s<a.length){document.documentElement.style.setProperty('--reader-fz',a[s]+'px');}}catch(e){}})();</script>
+<link rel="stylesheet" href="style.css">
+<script defer src="reader.js"></script>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="container">
+    <div class="top-bar-inner">
+      <a href="index.html" class="logo">⬢ Camera Atlas</a>
+      <nav>
+        <a href="index.html">總目錄</a>
+        <a href="ch07-multiframe-hdr.html" class="active">多幀融合 &amp; HDR</a>
+        <a href="glossary.html">詞彙表</a>
+      </nav>
+      <span>Vol.07</span>
+      <div class="font-control" role="group" aria-label="字體大小">
+        <button type="button" class="fz-btn" data-action="dec" aria-label="縮小字體">A<span class="fz-sym">−</span></button>
+        <button type="button" class="fz-btn" data-action="inc" aria-label="放大字體">A<span class="fz-sym">+</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="kicker">
+      <span class="dot"></span>
+      Vol. 07 · Multi-frame &amp; HDR
+    </div>
+    <h1>多幀融合、HDR 與夜景模式<br>為什麼 <em>「一張」照片要拍十張</em></h1>
+    <p class="hero-sub">
+      現代手機的「神奇畫質」不是單張的勝利,而是<strong>運算攝影(computational photography)</strong>的勝利:
+      按下快門時其實拍了 5~15 張,然後對齊、合成、降噪。這一章把 HDR、MFNR、夜景模式這三個
+      多幀技巧拆開講,順便講系統挑戰。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 01 · 為什麼要多幀</div>
+    <h2>單張 sensor 的物理極限 <em>無法越過</em></h2>
+    <p class="lead">
+      Sensor 在<strong>單次曝光</strong>有兩個根本限制:
+      <strong>(1) 動態範圍受限</strong>於 well 容量與 noise floor,
+      <strong>(2) SNR 受限</strong>於曝光時間與 pixel size。要超越這兩個限制,只能<strong>從時間裡偷</strong>——拍很多張,合成。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ 多幀融合的三條技術線</div>
+      <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg">
+        <!-- HDR -->
+        <rect x="40" y="50" width="220" height="180" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="150" y="78" fill="#2a2520" font-family="Source Serif 4" font-size="14" font-weight="600" text-anchor="middle">HDR Merge</text>
+        <text x="150" y="100" fill="#8b3a1e" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">提升動態範圍</text>
+        <text x="150" y="125" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">• 不同曝光</text>
+        <text x="150" y="143" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">  short / med / long</text>
+        <text x="150" y="165" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">• 合成保留亮暗細節</text>
+        <text x="150" y="187" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">• 適合高對比場景</text>
+        <text x="150" y="215" fill="#2d6a3e" font-family="Source Serif 4" font-size="10" text-anchor="middle">例:逆光人像</text>
+
+        <!-- MFNR -->
+        <rect x="290" y="50" width="220" height="180" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="400" y="78" fill="#2a2520" font-family="Source Serif 4" font-size="14" font-weight="600" text-anchor="middle">MFNR</text>
+        <text x="400" y="100" fill="#8b3a1e" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">提升 SNR</text>
+        <text x="400" y="125" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">• 同曝光多張</text>
+        <text x="400" y="143" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">  6~10 張</text>
+        <text x="400" y="165" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">• 對齊後平均</text>
+        <text x="400" y="187" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">• 適合中低光</text>
+        <text x="400" y="215" fill="#2d6a3e" font-family="Source Serif 4" font-size="10" text-anchor="middle">例:室內、傍晚</text>
+
+        <!-- Night Mode -->
+        <rect x="540" y="50" width="220" height="180" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="650" y="78" fill="#2a2520" font-family="Source Serif 4" font-size="14" font-weight="600" text-anchor="middle">Night Mode</text>
+        <text x="650" y="100" fill="#8b3a1e" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">極致拉低光</text>
+        <text x="650" y="125" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">• 長 + 多張</text>
+        <text x="650" y="143" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">  數秒總曝光</text>
+        <text x="650" y="165" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">• 全套對齊 + AI NR</text>
+        <text x="650" y="187" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">• 適合幾乎沒光</text>
+        <text x="650" y="215" fill="#2d6a3e" font-family="Source Serif 4" font-size="10" text-anchor="middle">例:夜景、星空</text>
+
+        <text x="400" y="260" fill="#5a4f44" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">三條技術線共享同一套基礎建設:align + merge engine</text>
+      </svg>
+      <p class="diagram-caption">多幀融合分三條主線:HDR 解決動態範圍、MFNR 解決雜訊、Night Mode 是兩者極致版。它們在系統面共用對齊與合成 engine。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 02 · HDR Merge</div>
+    <h2>不同曝光的圖 <em>怎麼合成成一張</em></h2>
+    <p class="lead">
+      傳統 HDR(<strong>Exposure Bracketing</strong>)拍 3 張:<code>EV-2</code>(短曝、留亮部細節)、
+      <code>EV0</code>(正常)、<code>EV+2</code>(長曝、留暗部細節)。然後在 ISP 把三張合一張。
+      核心難點:<strong>動態物體的處理(ghosting)</strong>與<strong>banding 控制</strong>。
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">01</div>
+        <div class="step-content">
+          <h3>對齊(Alignment)</h3>
+          <p>
+            手機在拍 3 張之間可能會稍微晃動。所以合成前必須<strong>把三張對齊</strong>。
+            通常用<strong>金字塔 + block matching</strong>:把圖縮小成多層金字塔,從最小層開始找位移,
+            逐層 refine。這是個 mature 但運算量不小的步驟。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">02</div>
+        <div class="step-content">
+          <h3>選擇權重(Merge weighting)</h3>
+          <p>
+            合成不是「平均」,而是<strong>「每個 pixel 從最適合那張取值」</strong>:
+            (1) 亮部 → 短曝那張(沒過曝),
+            (2) 暗部 → 長曝那張(SNR 較好),
+            (3) 中間 → 加權平均。權重通常用 well-exposedness 函數
+            (Mertens et al. 2007 的經典方法),曝光適中的 pixel 權重最高。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">03</div>
+        <div class="step-content">
+          <h3>Ghost removal</h3>
+          <p>
+            場景裡的人或車<strong>會動</strong>,三張間不同位置。如果直接合成,動的物體會變透明、變雙影。
+            Ghost removal 的做法:檢測「跨幀對齊後仍有大差異」的區域,標為 ghost region,
+            在這個區域<strong>只用一張的資料</strong>(通常選 EV0),不做合成。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">04</div>
+        <div class="step-content">
+          <h3>Tone mapping 收尾</h3>
+          <p>
+            合成後的中間結果是 <strong>14 ~ 16 bit linear HDR raw</strong>,還沒辦法直接顯示。
+            接下來丟給後端的 LTM 壓成 10/8 bit。<strong>所以「HDR 照片」其實是 HDR merge + LTM 一條龍</strong>,
+            兩者缺一不可。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">現代 HDR 的演變</div>
+      <ul>
+        <li><strong>Sensor HDR(Staggered / DCG)</strong> 把多曝光下放到 sensor,ISP 直接拿合成 raw</li>
+        <li><strong>ZSL HDR</strong> 不需要按下快門才拍——sensor 一直在拍不同曝光,使用者按下就取最近的合成</li>
+        <li><strong>HDR video</strong>(HDR10、HLG)用 staggered 即時輸出,encoder 直接吃 10-bit HDR raw</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 03 · MFNR(Multi-Frame Noise Reduction)</div>
+    <h2>同曝光多張 <em>怎麼把雜訊洗掉</em></h2>
+    <p class="lead">
+      光線中等(室內、傍晚)時,單張 SNR 不夠,但又不需要 HDR 那種誇張動態範圍。
+      MFNR 是合適的解法:<strong>拍 6~10 張同曝光,對齊後平均</strong>。
+      SNR 提升 √N 倍——10 張就是 3.2× 改善,等效 ISO 從 1600 降到 500。
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">A</div>
+        <div class="step-content">
+          <h3>Anchor frame 選擇</h3>
+          <p>
+            選一張當「基準」,其他張對齊到它。通常選<strong>清晰度最高、雜訊最低</strong>的那張
+            (sensor sharpness statistic 最大、ISO 最低)。
+            如果連拍時主體在動,還會選「motion 最少」的當 anchor。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">B</div>
+        <div class="step-content">
+          <h3>Pixel-wise alignment</h3>
+          <p>
+            HDR 是全局對齊(因為曝光差太多,patch matching 不可靠),MFNR 是同曝光,
+            可以做更精細的<strong>pixel-wise alignment</strong>。常用光流(optical flow)演算法,
+            算每個 pixel 從 anchor 到其他幀的位移向量。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">C</div>
+        <div class="step-content">
+          <h3>合併(merge)</h3>
+          <p>
+            對齊後的每個 pixel,從 N 張中<strong>加權平均</strong>。權重由<strong>「對齊信心度」</strong>決定:
+            對齊得好的 pixel 拿大權重,對齊失敗的(可能是運動物體)幾乎不取。
+            Google 的 <code>HDR+</code> 演算法就是 MFNR 的代表作。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <p>
+      MFNR 的優勢是<strong>「同曝光,所以沒有 HDR 的色彩跳變」</strong>。劣勢是動態範圍提升有限,
+      高對比場景仍需 HDR。所以實務上很多手機<strong>同時跑 MFNR + HDR</strong>——
+      先 MFNR 把單張畫質提升,再用 multi-exposure HDR 處理動態範圍。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 04 · Night Mode</div>
+    <h2>把「拍不到」變成「拍得到」<em>運算攝影的極限</em></h2>
+    <p class="lead">
+      Night mode 是 MFNR 的<strong>極致版本</strong>:更長的單張曝光(0.5~2 秒)、更多張(10~30 張)、
+      總曝光時間達 5~30 秒。沒有任何 sensor 物理可以單張做到——這完全是運算攝影的舞台。
+    </p>
+
+    <div class="scenario-card">
+      <div class="label">Scenario · iPhone Night Mode 按下快門後</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span>偵測到光線極暗,自動進入 night mode,顯示倒數秒數(例如 3 秒)</span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span>同時偵測手抖程度——抖得多就用「多張短曝」,穩定就用「少張長曝」</span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span>按下快門,連續拍 8~15 張,每張 100~500ms</span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span>全程顯示「保持穩定」提示,gyro 監控位移</span>
+        </div>
+        <div class="action-line">
+          <span class="num">5</span>
+          <span class="arrow">→</span>
+          <span>所有 raw 送 ISP + NPU,跑對齊 + AI NR + LTM,約耗時 2~5 秒</span>
+        </div>
+        <div class="action-line">
+          <span class="num">6</span>
+          <span class="arrow">→</span>
+          <span>輸出比眼睛實際看到還亮的「夜景」——這就是運算攝影的魔法</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">Night mode 的工程難點</div>
+      <ul>
+        <li><strong>長曝光的對齊更難</strong>——單張可能就糊了,對齊精度受限</li>
+        <li><strong>暗部 AI denoise 是必須的</strong>——傳統 NR 救不回極暗的雜訊</li>
+        <li><strong>場景檢測決定模式</strong>——AI 場景分類(夜景 / 星空 / 室內 / 月亮)觸發不同參數</li>
+        <li><strong>使用者體驗</strong>——倒數時間長,要在 UI 上明顯提示,否則使用者會以為當機</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 05 · ZSL Ring Buffer</div>
+    <h2>「快門延遲為零」<em>背後的硬體設計</em></h2>
+    <p class="lead">
+      多幀技術都需要時間。但使用者期待「按下快門 = 立刻拍到」。
+      解法是 <strong>Zero Shutter Lag(ZSL)</strong>:sensor <strong>在使用者進入相機後就一直在拍</strong>,
+      把最近 N 張存在 ring buffer 裡。使用者按下時,把<strong>「過去」</strong>的幾張拿出來合成。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ ZSL ring buffer 的時間軸</div>
+      <svg viewBox="0 0 800 240" xmlns="http://www.w3.org/2000/svg">
+        <!-- Time axis -->
+        <line x1="50" y1="180" x2="740" y2="180" stroke="#5a4f44" stroke-width="1.5"/>
+        <text x="50" y="200" fill="#5a4f44" font-family="Source Serif 4" font-size="11">過去 ←</text>
+        <text x="740" y="200" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="end">→ 未來</text>
+
+        <!-- Frames in buffer -->
+        <g>
+          <rect x="100" y="100" width="50" height="60" fill="#f3ede2" stroke="#d9cfbf"/>
+          <text x="125" y="135" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">F-7</text>
+          <rect x="155" y="100" width="50" height="60" fill="#f3ede2" stroke="#d9cfbf"/>
+          <text x="180" y="135" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">F-6</text>
+          <rect x="210" y="100" width="50" height="60" fill="#f3ede2" stroke="#d9cfbf"/>
+          <text x="235" y="135" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">F-5</text>
+          <rect x="265" y="100" width="50" height="60" fill="#f3ede2" stroke="#d9cfbf"/>
+          <text x="290" y="135" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">F-4</text>
+          <rect x="320" y="100" width="50" height="60" fill="#b8860b" opacity="0.6" stroke="#d9cfbf"/>
+          <text x="345" y="135" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="middle">F-3</text>
+          <rect x="375" y="100" width="50" height="60" fill="#b8860b" opacity="0.6" stroke="#d9cfbf"/>
+          <text x="400" y="135" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="middle">F-2</text>
+          <rect x="430" y="100" width="50" height="60" fill="#b8860b" opacity="0.6" stroke="#d9cfbf"/>
+          <text x="455" y="135" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="middle">F-1</text>
+          <rect x="485" y="100" width="50" height="60" fill="#8b3a1e" opacity="0.6" stroke="#d9cfbf"/>
+          <text x="510" y="135" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="middle" font-weight="600">F0</text>
+        </g>
+
+        <!-- Shutter press indicator -->
+        <line x1="510" y1="60" x2="510" y2="100" stroke="#8b3a1e" stroke-width="2" marker-end="url(#aax)"/>
+        <text x="510" y="50" fill="#8b3a1e" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">使用者按下快門</text>
+
+        <!-- Selected for HDR -->
+        <text x="400" y="40" fill="#2d6a3e" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">合成時取 F-3 ~ F0</text>
+        <path d="M320 80 Q400 65 535 100" stroke="#2d6a3e" stroke-width="1" fill="none" stroke-dasharray="3,2"/>
+
+        <!-- Older frames -->
+        <text x="125" y="225" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">捨棄</text>
+        <text x="400" y="225" fill="#2d6a3e" font-family="Source Serif 4" font-size="10" text-anchor="middle">合成池(被選中)</text>
+        <text x="600" y="225" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">繼續拍</text>
+
+        <defs>
+          <marker id="aax" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#8b3a1e"/>
+          </marker>
+        </defs>
+      </svg>
+      <p class="diagram-caption">ZSL ring buffer 持續儲存最近 N 張 raw。使用者按下快門時(F0),系統把 F-3 ~ F0 取出送 multi-frame engine。所以「快門 lag = 0」其實是因為「畫面早就拍好了」。</p>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">ZSL 的系統成本</div>
+      <ul>
+        <li><strong>DRAM 一直在燒</strong>——8 張 raw 12MP 大概 200MB,持續佔用</li>
+        <li><strong>Sensor 不能停</strong>——進入相機後 sensor 持續輸出,功耗顯著</li>
+        <li><strong>不適合 always-on 場景</strong>——智慧眼鏡的「環境感知」不能這樣燒電,要靠 sensor 自帶低功耗 mode</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 06 · 本章重點回顧</div>
+    <h2>多幀融合 <em>系統面試重點</em></h2>
+
+    <div class="scenario-card">
+      <div class="label">面試常問題</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span><strong>HDR 用不同曝光,MFNR 用同曝光</strong>——目的不同,合成邏輯也不同</span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span><strong>對齊永遠是難點</strong>:HDR 用 patch matching,MFNR 用 optical flow</span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span><strong>Ghost removal</strong>:檢測 alignment 後仍大差異的區域,只取一張</span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span><strong>Night Mode</strong> 是 MFNR + AI NR + 場景偵測 + UI 倒數的合奏</span>
+        </div>
+        <div class="action-line">
+          <span class="num">5</span>
+          <span class="arrow">→</span>
+          <span><strong>ZSL ring buffer</strong> 是「零快門延遲」的核心,但功耗代價可觀</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="chapter-nav">
+  <div class="container">
+    <div class="chapter-nav-grid">
+      <a href="ch06-isp-backend.html" class="nav-card prev">
+        <div class="label">Prev</div>
+        <h4>後端影像增強</h4>
+        <p>Tone mapping、NR、sharpen、CCM。</p>
+      </a>
+      <a href="ch08-video-pipeline.html" class="nav-card next">
+        <div class="label">Next</div>
+        <h4>Video Pipeline 與穩定化</h4>
+        <p>video 與 still 的關鍵差異、EIS/OIS。</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Camera Atlas · Complete Edition
+  </div>
+</footer>
+
+</body>
+</html>

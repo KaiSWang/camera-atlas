@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3A 演算法 — Camera Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Noto+Serif+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>(function(){try{var s=parseInt(localStorage.getItem('webatlas_text_size'),10);var a=[15,16,17,18,19,20,22,24];if(!isNaN(s)&&s>=0&&s<a.length){document.documentElement.style.setProperty('--reader-fz',a[s]+'px');}}catch(e){}})();</script>
+<link rel="stylesheet" href="style.css">
+<script defer src="reader.js"></script>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="container">
+    <div class="top-bar-inner">
+      <a href="index.html" class="logo">⬢ Camera Atlas</a>
+      <nav>
+        <a href="index.html">總目錄</a>
+        <a href="ch05-3a-algorithms.html" class="active">3A 演算法</a>
+        <a href="glossary.html">詞彙表</a>
+      </nav>
+      <span>Vol.05</span>
+      <div class="font-control" role="group" aria-label="字體大小">
+        <button type="button" class="fz-btn" data-action="dec" aria-label="縮小字體">A<span class="fz-sym">−</span></button>
+        <button type="button" class="fz-btn" data-action="inc" aria-label="放大字體">A<span class="fz-sym">+</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="kicker">
+      <span class="dot"></span>
+      Vol. 05 · 3A Algorithms
+    </div>
+    <h1>3A 演算法<br>讓 camera 自己 <em>看、調、學</em></h1>
+    <p class="hero-sub">
+      3A = <strong>Auto Exposure / Auto Focus / Auto White Balance</strong>。它們是 ISP 裡<strong>唯一有「回授」</strong>的子系統:
+      ISP 算統計 → algorithm 決策 → 寫回 sensor/lens → 下一張拍出來不一樣。理解這個迴路,
+      才能解釋為什麼相機切換場景時會有「鏡頭呼吸」、為什麼有時白平衡會跳。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 01 · 統計引擎</div>
+    <h2>3A 的共同前提 <em>ISP 必須先「看懂這張圖」</em></h2>
+    <p class="lead">
+      3A 演算法本身不直接看影像——那資料量太大。ISP 硬體會把每張圖<strong>切成 grid</strong>
+      (例如 64×48 = 3072 個 zone),每個 zone 算一組統計值:亮度、各色平均、對比度、histogram。
+      演算法吃的就是這幾 KB 的<strong>statistics</strong>,而不是 50MB 的 raw。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ 3A 統計引擎的資料流</div>
+      <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg">
+        <!-- Image with grid -->
+        <rect x="60" y="50" width="240" height="180" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="180" y="40" fill="#2a2520" font-family="Source Serif 4" font-size="12" font-weight="600" text-anchor="middle">Frame(分成 grid)</text>
+        <!-- Grid lines -->
+        <g stroke="#d9cfbf" stroke-width="0.5">
+          <line x1="100" y1="50" x2="100" y2="230"/>
+          <line x1="140" y1="50" x2="140" y2="230"/>
+          <line x1="180" y1="50" x2="180" y2="230"/>
+          <line x1="220" y1="50" x2="220" y2="230"/>
+          <line x1="260" y1="50" x2="260" y2="230"/>
+          <line x1="60" y1="80" x2="300" y2="80"/>
+          <line x1="60" y1="110" x2="300" y2="110"/>
+          <line x1="60" y1="140" x2="300" y2="140"/>
+          <line x1="60" y1="170" x2="300" y2="170"/>
+          <line x1="60" y1="200" x2="300" y2="200"/>
+        </g>
+        <text x="80" y="68" fill="#5a4f44" font-family="Source Serif 4" font-size="9" text-anchor="middle">zone</text>
+
+        <line x1="300" y1="140" x2="370" y2="140" stroke="#8b3a1e" stroke-width="2" marker-end="url(#aa)"/>
+
+        <!-- Stats engine -->
+        <rect x="370" y="80" width="180" height="120" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="460" y="105" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">Stats engine</text>
+        <text x="460" y="128" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">每 zone:</text>
+        <text x="460" y="146" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">• Luma mean</text>
+        <text x="460" y="162" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">• R/G/B mean</text>
+        <text x="460" y="178" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">• Histogram</text>
+        <text x="460" y="194" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">• Contrast/Sharpness</text>
+
+        <line x1="550" y1="140" x2="620" y2="140" stroke="#8b3a1e" stroke-width="2" marker-end="url(#aa)"/>
+
+        <!-- 3A algos -->
+        <rect x="620" y="60" width="150" height="50" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="695" y="82" fill="#2a2520" font-family="Source Serif 4" font-size="12" font-weight="600" text-anchor="middle">AE algorithm</text>
+        <text x="695" y="100" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">→ exposure, gain</text>
+
+        <rect x="620" y="120" width="150" height="50" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="695" y="142" fill="#2a2520" font-family="Source Serif 4" font-size="12" font-weight="600" text-anchor="middle">AF algorithm</text>
+        <text x="695" y="160" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">→ VCM position</text>
+
+        <rect x="620" y="180" width="150" height="50" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="695" y="202" fill="#2a2520" font-family="Source Serif 4" font-size="12" font-weight="600" text-anchor="middle">AWB algorithm</text>
+        <text x="695" y="220" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">→ R/B gain</text>
+
+        <text x="400" y="265" fill="#5a4f44" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">由硬體完成,軟體只讀 stats(幾 KB)</text>
+
+        <defs>
+          <marker id="aa" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#8b3a1e"/>
+          </marker>
+        </defs>
+      </svg>
+      <p class="diagram-caption">每張 frame 經過硬體 stats engine 萃取 grid 統計值,再交給三個獨立的軟體演算法。三者共享同一份 stats,但決策互相影響(例如 AE 改了曝光,AWB 統計就要重算)。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 02 · AE(Auto Exposure)</div>
+    <h2>讓畫面 <em>不要太亮、不要太暗</em></h2>
+    <p class="lead">
+      AE 的目標是<strong>讓畫面的「平均亮度」落在目標值附近</strong>。目標值在 8-bit 系統大約是 118
+      (中性灰 18% 反射率對應的值)。可調的有三個:<strong>exposure time(快門)、analog gain(sensor 內放大)、digital gain(ISP 內放大)</strong>。
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">01</div>
+        <div class="step-content">
+          <h3>誰先動?Exposure Triangle</h3>
+          <p>
+            三個變數的<strong>優先順序</strong>是各廠 secret sauce 的一部分。常見策略:
+            <strong>先加快門</strong>(不會增加雜訊,但會引入 motion blur),
+            <strong>再加 analog gain</strong>(雜訊溫和增加),
+            <strong>最後才用 digital gain</strong>(純粹放大 +雜訊,沒有資訊增益)。
+            視訊模式下還要遵守 frame rate 上限,快門不能超過 1/fps。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">02</div>
+        <div class="step-content">
+          <h3>Weighted metering(加權測光)</h3>
+          <p>
+            不是把全圖平均——而是<strong>加權平均</strong>。中央比邊緣權重高(center-weighted)、
+            人臉偵測命中區域權重再加倍(face priority)、AI 偵測到「主體」也會被權重提升。
+            這就是為什麼<strong>對著陽光拍人,臉會被特別考慮、不致於變黑剪影</strong>。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">03</div>
+        <div class="step-content">
+          <h3>Convergence(收斂)</h3>
+          <p>
+            AE 不是一拍即得。從室內走到室外的瞬間,亮度差 100×,AE 不能一格直接調到底——
+            那會看起來很突兀。要在<strong>數十幀內漸進收斂</strong>,通常用
+            <code>damping factor</code>:每幀往目標走 30~50%。
+            這就是你看 preview 時亮度「慢慢調過去」的感覺。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">04</div>
+        <div class="step-content">
+          <h3>Anti-flicker</h3>
+          <p>
+            日光燈以 50/60Hz 閃爍。如果 sensor 快門剛好不是 1/50 或 1/60 的整數倍,
+            畫面會看到<strong>橫條紋滾動</strong>(rolling shutter + 光源閃爍的合奏)。
+            AE 必須把快門「鎖」在 1/100s 或 1/120s,即使理論上 1/80 比較準。這叫
+            <strong>flicker avoidance</strong>,在歐洲(50Hz)和台灣(60Hz)邏輯不同,
+            sensor 通常會內建偵測。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 03 · AF(Auto Focus)</div>
+    <h2>三派對焦技術 <em>從掃描到相位到雷射</em></h2>
+    <p class="lead">
+      手機鏡頭裡有個<strong>VCM(Voice Coil Motor)</strong>,通電會推動鏡片組前後移動,改變焦距。
+      AF 要做的是「決定 VCM 該推到哪個位置」。歷史上有三派,現在的旗艦手機是<strong>三派混用</strong>。
+    </p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>類型</th>
+          <th>原理</th>
+          <th>速度</th>
+          <th>缺點</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>CDAF(Contrast)</strong></td>
+          <td>掃描多個位置,找對比最大的</td>
+          <td>慢(0.5~1s)</td>
+          <td>有「呼吸」現象</td>
+        </tr>
+        <tr>
+          <td><strong>PDAF(Phase Detection)</strong></td>
+          <td>sensor 上特殊 pixel 量相位差</td>
+          <td>快(&lt; 100ms)</td>
+          <td>低光下精度下降</td>
+        </tr>
+        <tr>
+          <td><strong>Laser AF / ToF</strong></td>
+          <td>發雷射量距離,直接算焦距</td>
+          <td>極快</td>
+          <td>距離有限(~3m)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">A</div>
+        <div class="step-content">
+          <h3>CDAF — 暴力掃描</h3>
+          <p>
+            最古老的方法:VCM 從近到遠掃過去,每個位置算一次「對比度」
+            (邊緣愈銳利對比愈高),取最大值。問題是<strong>必須來回掃描才能確認最大值</strong>——
+            這就是錄影時看到的「鏡頭呼吸」(focus breathing):為了確認剛剛那個位置就是最好的,
+            得稍微往遠處再推一下確認反而變糟,才回頭。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">B</div>
+        <div class="step-content">
+          <h3>PDAF — 在 sensor 上做手腳</h3>
+          <p>
+            現代主流。<strong>在 sensor 上嵌入特殊的「半遮罩 pixel」</strong>——左半邊和右半邊分開讀。
+            如果對焦準,左右影像會「對齊」;如果對焦不準,左右會有<strong>「相位差」</strong>,
+            而且相位差的方向告訴你<strong>該往近還是往遠推</strong>。一次計算就知道答案,不用掃描。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">C</div>
+        <div class="step-content">
+          <h3>Dual-pixel & Quad-pixel(2PD / QPD)</h3>
+          <p>
+            把<strong>所有 pixel 都做成 PDAF</strong>——每個 pixel 內部就是兩個半圓 photodiode
+            (Sony 把這叫做「2×1 OCL」)。讀的時候可以選擇:
+            (1) 左右相加 = 正常成像,(2) 左右相減 = 相位差。
+            這讓 PDAF 從「少數特殊 pixel」變成「全 sensor 對焦」,精度暴增。
+            QPD 更進一步,每 pixel 內 2×2 四個 photodiode,可以同時做水平 & 垂直相位差,
+            對水平條紋場景也準。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">D</div>
+        <div class="step-content">
+          <h3>Laser AF / ToF — 直接量</h3>
+          <p>
+            發 940nm 雷射,量反射時間,直接算物體距離。距離換算成 VCM 位置就 OK。
+            優點:<strong>低光下也準</strong>,因為不依賴影像對比。缺點:距離有限、雷射功耗、
+            背景物體可能干擾(打到玻璃會反射回近距離)。所以現在通常當「輔助」,
+            最終仍交給 PDAF 微調。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">VCM 控制的工程細節</div>
+      <ul>
+        <li><strong>Hysteresis</strong>——VCM 來回移動會有遲滯,同樣的電流近→遠和遠→近的位置不同</li>
+        <li><strong>OIS 共用 VCM</strong>——OIS 與 AF 共用同一組馬達線圈,需要疊加控制電流</li>
+        <li><strong>Linearity calibration</strong>——產線校正,讓「電流 → 位置」變線性</li>
+        <li><strong>Macro mode</strong>——超近距離拍攝時 VCM 推到極限,可能會撞到 stop,需保護電路</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 04 · AWB(Auto White Balance)</div>
+    <h2>讓白色 <em>看起來是白色</em></h2>
+    <p class="lead">
+      人眼有「色彩恆常性」:無論在日光燈下還是太陽下看白紙,都覺得它是白的。Sensor 沒有這個能力——
+      日光燈下白紙拍出來偏黃綠、太陽下偏藍。AWB 的工作是<strong>估計當下光源的色溫</strong>,
+      乘上反向的 R/B gain 把白色「拉回白色」。
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">01</div>
+        <div class="step-content">
+          <h3>Gray World 假設</h3>
+          <p>
+            最老的演算法:<strong>假設整個畫面的平均應該是灰色</strong>(R = G = B)。
+            如果實測 R 平均比 G 高,就推測「光源偏紅」,把 R gain 調低。
+            問題:拍紅色花海會把整張變灰。所以這只是 baseline,不能單用。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">02</div>
+        <div class="step-content">
+          <h3>White Patch 假設</h3>
+          <p>
+            假設<strong>畫面中最亮的點是白色</strong>(把白拍到飽和)。
+            這對「畫面有白色物體」的場景很準,但對「整張都是色塊、沒有真正的白」就會亂。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">03</div>
+        <div class="step-content">
+          <h3>Color by Correlation(主流)</h3>
+          <p>
+            <strong>學習導向</strong>:廠商在實驗室拍上萬張不同光源、不同場景的照片,標註每張的「正確色溫」,
+            建一張「畫面 R/G 比 vs B/G 比 → 色溫」的查詢表。<strong>實際運作時取統計值,在表中找最像的</strong>。
+            這也叫 <code>chromaticity locus</code> 方法。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">04</div>
+        <div class="step-content">
+          <h3>AI AWB</h3>
+          <p>
+            近 5 年很多旗艦用 CNN 直接從 raw 推測色溫,效果在「混光」場景(室內白光 + 窗外日光同時存在)
+            遠勝傳統方法。代價是<strong>多一個 NPU inference,latency 高,功耗高</strong>,
+            通常只在拍照模式跑,預覽還是傳統 AWB。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="scenario-card">
+      <div class="label">Scenario · 走進咖啡廳時 AWB 怎麼跳</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span>戶外 5500K,AWB R_gain=1.0 B_gain=1.0(基準)</span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span>走進咖啡廳,鎢絲燈 2800K,畫面突然偏黃</span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span>AWB 統計值更新,認為光源變暖,R_gain 降到 0.6、B_gain 升到 1.8</span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span>用 damping factor 漸進,大約 1~2 秒收斂到目標值</span>
+        </div>
+        <div class="action-line">
+          <span class="num">5</span>
+          <span class="arrow">→</span>
+          <span>白衣服回到白色,完成色彩恆常性的視覺體驗</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 05 · 3A 的相互干擾</div>
+    <h2>為什麼三個演算法 <em>不能各做各的</em></h2>
+    <p class="lead">
+      3A 看起來是三個獨立模組,但它們<strong>共享同一份統計值</strong>,而且各自的決策會影響其他兩個。
+      系統工程師必須懂這些 cross-coupling。
+    </p>
+
+    <div class="tech-callout">
+      <div class="ct-label">三角依賴</div>
+      <ul>
+        <li><strong>AE → AWB</strong>:AE 改了曝光,飽和區範圍變了,AWB 用的「亮 pixel」樣本就變了</li>
+        <li><strong>AE → AF</strong>:AE 還沒收斂,影像太亮或太暗,AF 的對比度量測不準</li>
+        <li><strong>AF → AE</strong>:VCM 移動時影像短暫模糊,AE 統計可能誤判</li>
+        <li><strong>AWB → 後端 NR</strong>:不同色溫下,NR 強度要不同(藍通道在低光下雜訊最大)</li>
+      </ul>
+    </div>
+
+    <p>
+      所以 3A 並不是三個獨立的 thread——廠商 ISP 中通常有<strong>「3A scheduler」</strong>協調:
+      AE 先收斂、AWB 跟上、AF 同時跑但延後幾幀採信。這就是為什麼有時你會看到「先亮起來,白平衡才回正」。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 06 · 本章重點回顧</div>
+    <h2>3A <em>面試必答</em></h2>
+
+    <div class="scenario-card">
+      <div class="label">記住這些核心概念</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span><strong>3A 吃 stats,不吃影像</strong>——硬體先把 raw 萃成 grid 統計值</span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span><strong>AE 的優先順序</strong>:快門 → analog gain → digital gain</span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span><strong>PDAF vs CDAF</strong>:相位差 vs 對比掃描,PDAF 快但低光弱</span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span><strong>2PD / QPD</strong> 把 PDAF 從少數 pixel 變成全 sensor 對焦</span>
+        </div>
+        <div class="action-line">
+          <span class="num">5</span>
+          <span class="arrow">→</span>
+          <span><strong>AWB 從 Gray World → Color Correlation → AI</strong>,愈進階愈不會被花海騙</span>
+        </div>
+        <div class="action-line">
+          <span class="num">6</span>
+          <span class="arrow">→</span>
+          <span><strong>Flicker avoidance</strong>:50/60Hz 光源逼迫 AE 鎖整數倍快門</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="chapter-nav">
+  <div class="container">
+    <div class="chapter-nav-grid">
+      <a href="ch04-isp-frontend.html" class="nav-card prev">
+        <div class="label">Prev</div>
+        <h4>前端校正</h4>
+        <p>BLC / LSC / DPC / Demosaic / WB。</p>
+      </a>
+      <a href="ch06-isp-backend.html" class="nav-card next">
+        <div class="label">Next</div>
+        <h4>後端影像增強</h4>
+        <p>Tone mapping、NR、sharpen、CCM、gamma。</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Camera Atlas · Complete Edition
+  </div>
+</footer>
+
+</body>
+</html>

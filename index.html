@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Camera Atlas — 從感光到成像</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Noto+Serif+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>(function(){try{var s=parseInt(localStorage.getItem('webatlas_text_size'),10);var a=[15,16,17,18,19,20,22,24];if(!isNaN(s)&&s>=0&&s<a.length){document.documentElement.style.setProperty('--reader-fz',a[s]+'px');}}catch(e){}})();</script>
+<link rel="stylesheet" href="style.css">
+<script defer src="reader.js"></script>
+<style>
+  .toc-section { padding: 64px 0; border-bottom: 1px solid var(--line); }
+
+  .toc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 0 28px;
+    margin-top: 28px;
+  }
+
+  .toc-item {
+    display: grid;
+    grid-template-columns: 56px 1fr 24px;
+    gap: 18px;
+    padding: 22px 8px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    text-decoration: none;
+    color: var(--ink);
+    transition: background 0.2s, padding 0.2s;
+    align-items: baseline;
+  }
+
+  .toc-item:hover { background: var(--paper-2); padding-left: 16px; padding-right: 16px; }
+  .toc-item:hover .toc-arrow { color: var(--accent); transform: translateX(4px); }
+
+  .toc-num {
+    font-family: 'Source Serif 4', 'Noto Serif TC', Georgia, serif;
+    font-size: 38px; font-weight: 400; font-style: italic;
+    color: var(--accent); line-height: 1; text-align: center;
+  }
+
+  .toc-content h3 {
+    font-family: 'Source Serif 4', 'Noto Serif TC', Georgia, serif;
+    font-size: 20px; font-weight: 600; margin-bottom: 4px;
+    color: var(--ink); letter-spacing: -0.005em;
+  }
+
+  .toc-content .toc-sub {
+    font-family: inherit; font-size: 11px; letter-spacing: 0.18em;
+    color: var(--ink-3); margin-bottom: 8px;
+    text-transform: uppercase; font-style: normal;
+  }
+
+  .toc-content p { font-size: 14px; color: var(--ink-2); line-height: 1.6; margin: 0; }
+
+  .toc-arrow {
+    text-align: right; font-family: inherit;
+    color: var(--ink-3); font-size: 18px;
+    transition: color 0.2s, transform 0.2s; align-self: center;
+  }
+
+  .toc-section-title {
+    font-family: inherit; font-size: 12px; letter-spacing: 0.25em;
+    text-transform: uppercase; color: var(--ink-3);
+    margin: 48px 0 8px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--line-2); display: inline-block;
+  }
+  .toc-section-title:first-child { margin-top: 0; }
+
+  @media (max-width: 600px) {
+    .toc-item { grid-template-columns: 50px 1fr; gap: 16px; }
+    .toc-arrow { display: none; }
+    .toc-num { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="container">
+    <div class="top-bar-inner">
+      <a href="index.html" class="logo">⬢ Camera Atlas</a>
+      <nav>
+        <a href="index.html" class="active">總目錄</a>
+        <a href="ch01-optics-sensor.html">第一章</a>
+        <a href="glossary.html">詞彙表</a>
+      </nav>
+      <span>2026 / 1st Ed.</span>
+      <div class="font-control" role="group" aria-label="字體大小">
+        <button type="button" class="fz-btn" data-action="dec" aria-label="縮小字體">A<span class="fz-sym">−</span></button>
+        <button type="button" class="fz-btn" data-action="inc" aria-label="放大字體">A<span class="fz-sym">+</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="kicker">
+      <span class="dot"></span>
+      Complete Edition · A System Engineer's Guide to Camera Pipeline
+    </div>
+    <h1>Camera Atlas,<br>從<em>一顆光子</em>開始</h1>
+    <p class="hero-sub">
+      這是一份為 <strong style="color:var(--ink)">想跨入 camera 領域的系統工程師</strong> 寫的 camera pipeline 指南。
+      我們不從「光圈快門 ISO」教起,而是從你每天看到的照片出發——把 sensor、ISP、encoder、AI 加速器
+      之間的所有 <code>handshake</code>、<code>buffer</code>、<code>latency budget</code> 一層一層剝開。
+      讀完之後,你會懂為什麼一張夜景照要花 800ms、為什麼智慧眼鏡的 camera 不能照搬手機架構。
+    </p>
+  </div>
+</section>
+
+<section class="toc-section">
+  <div class="container">
+    <h2 style="font-size: 32px; margin-bottom: 8px;">完整目錄</h2>
+    <p style="color: var(--ink-2); margin-bottom: 32px;">11 個章節 + 詞彙表,建議從第一章順讀,但每章都可以獨立翻閱。</p>
+
+    <div class="toc-section-title">Part I · 系統全景</div>
+
+    <div class="toc-grid">
+      <a href="ch01-optics-sensor.html" class="toc-item">
+        <div class="toc-num">01</div>
+        <div class="toc-content">
+          <div class="toc-sub">Vol. 01 · Optics &amp; Sensor</div>
+          <h3>光路與感光元件</h3>
+          <p>鏡頭、Bayer CFA、CMOS sensor 結構、rolling vs global shutter、HDR sensor。</p>
+        </div>
+        <div class="toc-arrow">▸</div>
+      </a>
+
+      <a href="ch02-pipeline-overview.html" class="toc-item">
+        <div class="toc-num">02</div>
+        <div class="toc-content">
+          <div class="toc-sub">Vol. 02 · Pipeline Overview</div>
+          <h3>Camera Pipeline 全景圖</h3>
+          <p>從 sensor → ISP → memory → encoder/display 的資料流;前後端 ISP 的分工。</p>
+        </div>
+        <div class="toc-arrow">▸</div>
+      </a>
+
+      <a href="ch03-mipi-csi2.html" class="toc-item">
+        <div class="toc-num">03</div>
+        <div class="toc-content">
+          <div class="toc-sub">Vol. 03 · MIPI &amp; Data Flow</div>
+          <h3>MIPI CSI-2 與資料流</h3>
+          <p>D-PHY / C-PHY、virtual channel、packet 結構、bandwidth 計算與壓力點。</p>
+        </div>
+        <div class="toc-arrow">▸</div>
+      </a>
+    </div>
+
+    <div class="toc-section-title">Part II · ISP 各區塊</div>
+
+    <div class="toc-grid">
+      <a href="ch04-isp-frontend.html" class="toc-item">
+        <div class="toc-num">04</div>
+        <div class="toc-content">
+          <div class="toc-sub">Vol. 04 · ISP Frontend</div>
+          <h3>前端校正</h3>
+          <p>BLC、LSC、defect pixel correction、demosaic、white balance 的順序與原理。</p>
+        </div>
+        <div class="toc-arrow">▸</div>
+      </a>
+
+      <a href="ch05-3a-algorithms.html" class="toc-item">
+        <div class="toc-num">05</div>
+        <div class="toc-content">
+          <div class="toc-sub">Vol. 05 · 3A Algorithms</div>
+          <h3>3A 演算法</h3>
+          <p>AE、AF(PDAF/CDAF/laser)、AWB 的回授迴路、收斂行為與相互干擾。</p>
+        </div>
+        <div class="toc-arrow">▸</div>
+      </a>
+
+      <a href="ch06-isp-backend.html" class="toc-item">
+        <div class="toc-num">06</div>
+        <div class="toc-content">
+          <div class="toc-sub">Vol. 06 · ISP Backend</div>
+          <h3>後端影像增強</h3>
+          <p>tone mapping、denoise、sharpen、CCM、gamma、LTM 的職責邊界。</p>
+        </div>
+        <div class="toc-arrow">▸</div>
+      </a>
+
+      <a href="ch07-multiframe-hdr.html" class="toc-item">
+        <div class="toc-num">07</div>
+        <div class="toc-content">
+          <div class="toc-sub">Vol. 07 · Multi-frame &amp; HDR</div>
+          <h3>多幀融合、HDR 與夜景模式</h3>
+          <p>HDR merge、MFNR、night mode、stack alignment 的演算法與系統挑戰。</p>
+        </div>
+        <div class="toc-arrow">▸</div>
+      </a>
+    </div>
+
+    <div class="toc-section-title">Part III · Video、Encoder 與 AI</div>
+
+    <div class="toc-grid">
+      <a href="ch08-video-pipeline.html" class="toc-item">
+        <div class="toc-num">08</div>
+        <div class="toc-content">
+          <div class="toc-sub">Vol. 08 · Video Pipeline</div>
+          <h3>Video Pipeline 與穩定化</h3>
+          <p>video 與 still 的差異、EIS/OIS、temporal denoise、frame rate 控制。</p>
+        </div>
+        <div class="toc-arrow">▸</div>
+      </a>
+
+      <a href="ch09-encoder.html" class="toc-item">
+        <div class="toc-num">09</div>
+        <div class="toc-content">
+          <div class="toc-sub">Vol. 09 · Encoder</div>
+          <h3>Encoder:H.264、HEVC、AV1</h3>
+          <p>I/P/B frame、intra prediction、motion estimation、rate control 與功耗。</p>
+        </div>
+        <div class="toc-arrow">▸</div>
+      </a>
+
+      <a href="ch10-camera-ai.html" class="toc-item">
+        <div class="toc-num">10</div>
+        <div class="toc-content">
+          <div class="toc-sub">Vol. 10 · Camera-AI</div>
+          <h3>Camera-AI 與 Semantic ISP</h3>
+          <p>NPU 加速、semantic segmentation、face/object detection、AI denoise。</p>
+        </div>
+        <div class="toc-arrow">▸</div>
+      </a>
+    </div>
+
+    <div class="toc-section-title">Part IV · 系統整合與面試重點</div>
+
+    <div class="toc-grid">
+      <a href="ch11-performance-glasses.html" class="toc-item">
+        <div class="toc-num">11</div>
+        <div class="toc-content">
+          <div class="toc-sub">Vol. 11 · Performance &amp; Smart Glasses</div>
+          <h3>Performance 度量與智慧眼鏡取捨</h3>
+          <p>latency、power、SNR/MTF/DR;智慧眼鏡 always-on camera 與手機的關鍵差異。</p>
+        </div>
+        <div class="toc-arrow">▸</div>
+      </a>
+    </div>
+
+    <div class="toc-section-title">附錄</div>
+
+    <div class="toc-grid">
+      <a href="glossary.html" class="toc-item">
+        <div class="toc-num">∗</div>
+        <div class="toc-content">
+          <div class="toc-sub">Appendix · Glossary</div>
+          <h3>詞彙表</h3>
+          <p>本書所有縮寫與術語的速查表,面試前最後一輪複習用。</p>
+        </div>
+        <div class="toc-arrow">▸</div>
+      </a>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Camera Atlas · Complete Edition · 為準備 Camera 領域面試的系統工程師而寫
+  </div>
+</footer>
+
+</body>
+</html>

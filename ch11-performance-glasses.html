@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Performance 度量與智慧眼鏡取捨 — Camera Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Noto+Serif+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>(function(){try{var s=parseInt(localStorage.getItem('webatlas_text_size'),10);var a=[15,16,17,18,19,20,22,24];if(!isNaN(s)&&s>=0&&s<a.length){document.documentElement.style.setProperty('--reader-fz',a[s]+'px');}}catch(e){}})();</script>
+<link rel="stylesheet" href="style.css">
+<script defer src="reader.js"></script>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="container">
+    <div class="top-bar-inner">
+      <a href="index.html" class="logo">⬢ Camera Atlas</a>
+      <nav>
+        <a href="index.html">總目錄</a>
+        <a href="ch11-performance-glasses.html" class="active">Performance &amp; 智慧眼鏡</a>
+        <a href="glossary.html">詞彙表</a>
+      </nav>
+      <span>Vol.11</span>
+      <div class="font-control" role="group" aria-label="字體大小">
+        <button type="button" class="fz-btn" data-action="dec" aria-label="縮小字體">A<span class="fz-sym">−</span></button>
+        <button type="button" class="fz-btn" data-action="inc" aria-label="放大字體">A<span class="fz-sym">+</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="kicker">
+      <span class="dot"></span>
+      Vol. 11 · Performance &amp; Smart Glasses
+    </div>
+    <h1>Performance 度量與 智慧眼鏡取捨<br>把整本書 <em>收束在面試這一刻</em></h1>
+    <p class="hero-sub">
+      Camera 是 trade-off 的藝術——畫質 vs 速度、功耗 vs 性能、延遲 vs 品質。
+      這章用<strong>三組度量指標</strong>把這些 trade-off 量化,然後用智慧眼鏡 vs 手機的對照<strong>把整本書串起來</strong>,
+      讓你帶著清楚的觀念走進二面。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 01 · Performance 三大度量</div>
+    <h2>Latency / Throughput / Power <em>每個都是 trade-off</em></h2>
+    <p class="lead">
+      Camera 系統的 KPI 大致分三類:<strong>(1) 時間相關</strong>(latency)、
+      <strong>(2) 通量相關</strong>(throughput)、<strong>(3) 能源相關</strong>(power)。
+      面試時若被問「你怎麼評估一個 camera 系統好不好」,答案要圍繞這三軸。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ Camera 系統的三軸 trade-off</div>
+      <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg">
+        <!-- Triangle -->
+        <polygon points="400,40 200,240 600,240" fill="none" stroke="#8b3a1e" stroke-width="2"/>
+
+        <!-- Vertices labels -->
+        <circle cx="400" cy="40" r="6" fill="#8b3a1e"/>
+        <text x="400" y="25" fill="#2a2520" font-family="Source Serif 4" font-size="16" font-weight="600" text-anchor="middle">Latency</text>
+
+        <circle cx="200" cy="240" r="6" fill="#2d6a3e"/>
+        <text x="170" y="260" fill="#2a2520" font-family="Source Serif 4" font-size="16" font-weight="600" text-anchor="middle">Throughput</text>
+
+        <circle cx="600" cy="240" r="6" fill="#2c5d8f"/>
+        <text x="630" y="260" fill="#2a2520" font-family="Source Serif 4" font-size="16" font-weight="600" text-anchor="middle">Power</text>
+
+        <!-- Examples in center -->
+        <text x="400" y="135" fill="#5a4f44" font-family="Source Serif 4" font-size="12" font-style="italic" text-anchor="middle">不可能三角</text>
+        <text x="400" y="155" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">想要低延遲 + 高通量 + 低功耗?</text>
+        <text x="400" y="172" fill="#8b3a1e" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">通常只能挑兩個</text>
+
+        <!-- Side annotations -->
+        <text x="280" y="105" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle" transform="rotate(-45 280 105)">不能多幀 / 不能高解析</text>
+        <text x="520" y="105" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle" transform="rotate(45 520 105)">不能快 / 不能即時</text>
+        <text x="400" y="225" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">需要燒電</text>
+      </svg>
+      <p class="diagram-caption">系統設計的不可能三角:低 latency、高 throughput、低 power,通常只能優先兩個。例子:智慧眼鏡選 latency + power、手機拍照選 throughput + power、視訊通話選 latency + throughput。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 02 · Latency 細分</div>
+    <h2>不只一種「延遲」<em>系統工程師要分得清</em></h2>
+    <p class="lead">
+      Camera 領域有<strong>五種 latency</strong>,常被混為一談,但其實是完全不同的設計考量。
+      面試時把它們分清楚,馬上看起來像個「真懂系統的人」。
+    </p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>名稱</th>
+          <th>定義</th>
+          <th>典型值</th>
+          <th>誰最在乎</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Motion-to-Photon</strong></td>
+          <td>實體動 → 螢幕更新</td>
+          <td>50~80ms</td>
+          <td>VR / AR / 智慧眼鏡</td>
+        </tr>
+        <tr>
+          <td><strong>Shutter Lag</strong></td>
+          <td>按下 → 開始曝光</td>
+          <td>&lt; 30ms(ZSL = 0)</td>
+          <td>抓拍場景</td>
+        </tr>
+        <tr>
+          <td><strong>Shot-to-Shot</strong></td>
+          <td>兩張之間</td>
+          <td>200~500ms</td>
+          <td>連拍</td>
+        </tr>
+        <tr>
+          <td><strong>Save Latency</strong></td>
+          <td>按下 → 檔案完成</td>
+          <td>300ms ~ 5s</td>
+          <td>使用者體感</td>
+        </tr>
+        <tr>
+          <td><strong>3A Convergence</strong></td>
+          <td>場景變化 → 重新對焦/測光</td>
+          <td>100~500ms</td>
+          <td>切場景流暢度</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="tech-callout">
+      <div class="ct-label">為什麼智慧眼鏡 motion-to-photon 是命題核心</div>
+      <ul>
+        <li>智慧眼鏡若有 AR overlay,延遲 &gt; 80ms 使用者會感到不適(暈眩、漂浮感)</li>
+        <li>傳統手機 camera pipeline 預覽 motion-to-photon 普遍 100~150ms,智慧眼鏡<strong>不可行</strong></li>
+        <li>所以智慧眼鏡需要<strong>專用的 low-latency pipeline</strong>——pass-through video 直連 display,跳過大部分後處理</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 03 · 影像品質的量化</div>
+    <h2>SNR、MTF、DR <em>三個你必須能脫口而出的指標</em></h2>
+    <p class="lead">
+      面試時被問「你怎麼衡量畫質?」答「看起來好不好」是死刑。要能講出<strong>三個量化指標</strong>:
+      SNR、MTF、Dynamic Range。
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">SNR</div>
+        <div class="step-content">
+          <h3>Signal-to-Noise Ratio</h3>
+          <p>
+            訊號強度 / 雜訊標準差,單位 dB。對均勻灰板拍一張,量平均值與標準差就能算。
+            <strong>20log10(mean/std)</strong>。一般經驗:
+            <strong>SNR &gt; 30dB</strong> 是可接受品質,<strong>&gt; 40dB</strong> 是好品質。低光下 SNR 很容易掉到 15dB 以下,所以才需要多幀。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">MTF</div>
+        <div class="step-content">
+          <h3>Modulation Transfer Function — 解析力</h3>
+          <p>
+            鏡頭 + sensor 對「不同空間頻率細節」的還原能力。直觀:拍黑白條紋,
+            條紋愈密,對比愈低——MTF 值就是「在某個頻率下還剩多少對比」。
+            <strong>MTF50</strong>(對比降到 50% 時的空間頻率)是常用指標。
+            sensor 解析度高,但鏡頭 MTF 差時,實際解析力被鏡頭卡死——這就是「sensor 好不等於畫質好」的原因。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">DR</div>
+        <div class="step-content">
+          <h3>Dynamic Range — 動態範圍</h3>
+          <p>
+            最亮與最暗的<strong>比值</strong>,用 dB 或 EV(stops)表示。
+            手機 sensor 單張 DR 大約 60~70dB(10~12 stops);HDR merge 後可達 120dB(20 stops)。
+            人眼瞬時 DR 約 80dB,逐光適應後可達 90dB。<strong>智慧眼鏡的挑戰</strong>:
+            戶外 → 室內走動,每秒鐘 DR 變化巨大,而眼鏡又沒能力做手機那種多幀 HDR。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 04 · Power Budget</div>
+    <h2>毫瓦的世界 <em>智慧眼鏡的核心束縛</em></h2>
+    <p class="lead">
+      手機電池 4000mAh × 3.85V ≈ <strong>15.4Wh</strong>。智慧眼鏡電池通常 100~300mAh × 3.8V ≈ <strong>0.4~1.1Wh</strong>。
+      差 15~40 倍。但使用者期待全天電力——這意味著智慧眼鏡的 camera 必須在<strong>毫瓦級</strong>運作。
+    </p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>模組</th>
+          <th>手機典型功耗</th>
+          <th>智慧眼鏡目標</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Sensor(streaming)</strong></td>
+          <td>200~400 mW</td>
+          <td>&lt; 50 mW</td>
+        </tr>
+        <tr>
+          <td><strong>MIPI(active)</strong></td>
+          <td>150~300 mW</td>
+          <td>&lt; 30 mW</td>
+        </tr>
+        <tr>
+          <td><strong>ISP</strong></td>
+          <td>500 mW ~ 1.5 W</td>
+          <td>&lt; 200 mW</td>
+        </tr>
+        <tr>
+          <td><strong>NPU(AI inference)</strong></td>
+          <td>1~3 W</td>
+          <td>&lt; 100 mW</td>
+        </tr>
+        <tr>
+          <td><strong>Encoder(4K)</strong></td>
+          <td>800 mW ~ 1.5 W</td>
+          <td>&lt; 250 mW(1080p)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="tech-callout">
+      <div class="ct-label">智慧眼鏡的省電策略</div>
+      <ul>
+        <li><strong>Always-on 低解析模式</strong>——sensor 平時跑 320×240 binning,只在需要時切到高解析</li>
+        <li><strong>Sensor-side AI</strong>——簡單 motion detection / face detection 在 sensor 內做,主 SoC 睡眠</li>
+        <li><strong>Event-driven wake-up</strong>——只有「值得記錄」(語音指令、手勢)時才喚醒完整 pipeline</li>
+        <li><strong>跳過 LTM / 多幀</strong>——always-on 預覽只做基本 ISP,複雜處理留給「真正拍照」</li>
+        <li><strong>降低 frame rate</strong>——30fps → 15fps 馬上省一半</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 05 · 智慧眼鏡 vs 手機 camera</div>
+    <h2>同一條 pipeline <em>截然不同的優先順序</em></h2>
+    <p class="lead">
+      把整本書學到的東西套到「智慧眼鏡」這個情境,你會看到<strong>很多預設都要翻轉</strong>。
+      面試二面被問「smart glasses camera 跟手機差在哪」時,你的答案要分這幾層。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ 智慧眼鏡 vs 手機 camera 的關鍵差異</div>
+      <svg viewBox="0 0 800 360" xmlns="http://www.w3.org/2000/svg">
+        <!-- Phone column -->
+        <rect x="40" y="30" width="340" height="320" rx="6" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="210" y="60" fill="#2a2520" font-family="Source Serif 4" font-size="16" font-weight="600" text-anchor="middle">手機 Camera</text>
+
+        <g font-family="Source Serif 4" font-size="11" fill="#2a2520">
+          <text x="60" y="95">• 電池 15Wh,功耗預算寬</text>
+          <text x="60" y="115">• Sensor 大(1/1.3"~1")</text>
+          <text x="60" y="135">• ZSL ring buffer 一直跑</text>
+          <text x="60" y="155">• 多幀融合是常態</text>
+          <text x="60" y="175">• 4K 60fps HDR 錄影</text>
+          <text x="60" y="195">• 拍照 latency 預算 ~500ms</text>
+          <text x="60" y="215">• 使用者主動「按快門」</text>
+          <text x="60" y="235">• 鏡頭模組大、OIS 可行</text>
+          <text x="60" y="255">• ISP 全力衝畫質</text>
+          <text x="60" y="275">• 場景固定:相機 app 開時</text>
+          <text x="60" y="295">• HEVC + B frame 最佳壓縮</text>
+        </g>
+        <text x="60" y="325" fill="#8b3a1e" font-family="Source Serif 4" font-size="12" font-style="italic">目標:極致畫質</text>
+
+        <!-- Glasses column -->
+        <rect x="420" y="30" width="340" height="320" rx="6" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="590" y="60" fill="#2a2520" font-family="Source Serif 4" font-size="16" font-weight="600" text-anchor="middle">智慧眼鏡 Camera</text>
+
+        <g font-family="Source Serif 4" font-size="11" fill="#2a2520">
+          <text x="440" y="95">• 電池 0.4~1Wh,毫瓦級</text>
+          <text x="440" y="115">• Sensor 小(1/4"~1/2.5")</text>
+          <text x="440" y="135">• 多數時間 sensor 睡眠</text>
+          <text x="440" y="155">• 多幀只在「特定 trigger」</text>
+          <text x="440" y="175">• 1080p 30fps 為主</text>
+          <text x="440" y="195">• AR overlay latency &lt; 50ms</text>
+          <text x="440" y="215">• Always-on,使用者「不介入」</text>
+          <text x="440" y="235">• 鏡頭極小、無 OIS</text>
+          <text x="440" y="255">• ISP 衝功耗效率</text>
+          <text x="440" y="275">• 場景靈活:走、跑、跳、看</text>
+          <text x="440" y="295">• H.264 + IPPP 低延遲</text>
+        </g>
+        <text x="440" y="325" fill="#2d6a3e" font-family="Source Serif 4" font-size="12" font-style="italic">目標:always-on + 低延遲</text>
+      </svg>
+      <p class="diagram-caption">兩個系統的設計優先順序幾乎相反:手機在「該拍」的時刻全力衝畫質;眼鏡要 24 小時不引人注意地存在,並在 AR overlay 場景下提供超低延遲視訊。</p>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">智慧眼鏡 camera 的五個獨特挑戰</div>
+      <ul>
+        <li><strong>1. 隱私 — LED 強制亮起</strong>:很多國家立法,錄影時必須有可見指示燈</li>
+        <li><strong>2. 體溫散熱</strong>:貼著臉的裝置,SoC 溫度上限比手機嚴格,~40°C 已上限</li>
+        <li><strong>3. 第一人稱視角(POV)</strong>:畫面跟著頭動,要劇烈穩定化,EIS crop loss 比手機高</li>
+        <li><strong>4. 全天輸出 thermal limit</strong>:不能像手機那樣「拍 5 分鐘 4K 就過熱降頻」</li>
+        <li><strong>5. 雙目 stereo</strong>:很多 AR 眼鏡有兩顆 camera,deep estimation 又是一整套 pipeline</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 06 · 雙路徑架構</div>
+    <h2>智慧眼鏡 pipeline 的關鍵設計 <em>輕重分流</em></h2>
+    <p class="lead">
+      智慧眼鏡 camera 軟硬體架構的核心觀念是<strong>「輕重分流」</strong>——
+      大部分時間走「輕路徑」(超低功耗 always-on),只有在特定 trigger 時切到「重路徑」
+      (高品質拍照 / 錄影)。這跟手機的「同一條 pipeline 處理所有事」截然不同。
+    </p>
+
+    <div class="flow-illustration">
+<span class="comment"># 智慧眼鏡 camera 雙路徑</span>
+
+  <span class="key">輕路徑(99% 時間)</span>
+  Sensor(低解析 binning, 15fps)
+   └─→ Sensor-side AI(motion / face detect)
+        └─→ Wake-up trigger
+              │
+              ▼
+  <span class="key">重路徑(被喚醒時)</span>
+  Sensor(全解析, 30fps)
+   └─→ Full ISP pipeline
+        └─→ NPU(semantic + AI denoise)
+             └─→ Encoder
+                  └─→ Storage / Stream
+
+  <span class="warn">⚠ 兩條路徑共用同一個 sensor,sensor 必須有「mode switch」能力</span>
+  <span class="warn">⚠ Mode 切換要 &lt; 100ms,否則使用者體感卡頓</span>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">與 Qualcomm 平台的對應</div>
+      <ul>
+        <li><strong>Qualcomm AR1 Gen 1</strong>(2023)是首個專為智慧眼鏡設計的 SoC,集成輕量 ISP + NPU</li>
+        <li><strong>Camx + chi-cdk</strong> 在這個平台上提供 always-on camera 框架</li>
+        <li><strong>Sensor partner</strong>:Sony IMX681 / OmniVision OV02E10 等專為智慧眼鏡的低功耗 sensor</li>
+        <li><strong>面試可能會被問</strong>:你會怎麼設計「always-on face wake」?從 sensor 級 AI、wake signal、ISP power gating 三層展開</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 07 · 系統面試金句</div>
+    <h2>把整本書 <em>濃縮成幾句</em></h2>
+
+    <div class="scenario-card">
+      <div class="label">面試結尾:你怎麼總結 camera pipeline?</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span>「Camera 是<strong>光路、訊號處理、運算攝影、AI、編碼</strong>五層的疊加,每一層都在做 trade-off。」</span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span>「現代 camera 的『畫質』不是 sensor 決定的,而是<strong>多幀融合 + AI</strong> 決定的。」</span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span>「Pipeline 的三個關鍵 KPI 是 <strong>latency、throughput、power</strong>,通常只能優先兩個。」</span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span>「智慧眼鏡 vs 手機 camera 不是同一條 pipeline 換 sensor——<strong>是不同的系統哲學</strong>。」</span>
+        </div>
+        <div class="action-line">
+          <span class="num">5</span>
+          <span class="arrow">→</span>
+          <span>「未來 ISP 會更<strong>semantic 化、AI 化、sensor-side 化</strong>,而智慧眼鏡是這個趨勢的最前線。」</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">如果被問到「你最熟的 charging 經驗能帶來什麼?」</div>
+      <ul>
+        <li><strong>Power management 經驗</strong>——智慧眼鏡 camera 是個極端 power-constrained 系統,而你熟悉的就是這個</li>
+        <li><strong>多 domain 同步</strong>——sensor / ISP / NPU 各有 clock & voltage domain,跟你熟的 PMU 經驗本質相通</li>
+        <li><strong>韌體與硬體界面</strong>——sensor I²C 控制、ISP register tuning 都是 firmware 思維</li>
+        <li><strong>低功耗思維</strong>——always-on 場景下「每毫瓦都重要」的工程文化你已經習慣了</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="chapter-nav">
+  <div class="container">
+    <div class="chapter-nav-grid">
+      <a href="ch10-camera-ai.html" class="nav-card prev">
+        <div class="label">Prev</div>
+        <h4>Camera-AI 與 Semantic ISP</h4>
+        <p>NPU 加速、semantic segmentation。</p>
+      </a>
+      <a href="glossary.html" class="nav-card next">
+        <div class="label">附錄</div>
+        <h4>詞彙表</h4>
+        <p>所有縮寫與術語的速查表。</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Camera Atlas · Complete Edition
+  </div>
+</footer>
+
+</body>
+</html>

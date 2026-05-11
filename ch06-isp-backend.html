@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>後端影像增強 — Camera Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Noto+Serif+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>(function(){try{var s=parseInt(localStorage.getItem('webatlas_text_size'),10);var a=[15,16,17,18,19,20,22,24];if(!isNaN(s)&&s>=0&&s<a.length){document.documentElement.style.setProperty('--reader-fz',a[s]+'px');}}catch(e){}})();</script>
+<link rel="stylesheet" href="style.css">
+<script defer src="reader.js"></script>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="container">
+    <div class="top-bar-inner">
+      <a href="index.html" class="logo">⬢ Camera Atlas</a>
+      <nav>
+        <a href="index.html">總目錄</a>
+        <a href="ch06-isp-backend.html" class="active">後端增強</a>
+        <a href="glossary.html">詞彙表</a>
+      </nav>
+      <span>Vol.06</span>
+      <div class="font-control" role="group" aria-label="字體大小">
+        <button type="button" class="fz-btn" data-action="dec" aria-label="縮小字體">A<span class="fz-sym">−</span></button>
+        <button type="button" class="fz-btn" data-action="inc" aria-label="放大字體">A<span class="fz-sym">+</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="kicker">
+      <span class="dot"></span>
+      Vol. 06 · ISP Backend
+    </div>
+    <h1>後端影像增強<br>從「可信任」變成 <em>「好看」</em></h1>
+    <p class="hero-sub">
+      前端把 raw 校正成可信任的線性訊號;後端負責把它<strong>變成人眼覺得好看的影像</strong>。
+      這條路上有<strong>色彩、雜訊、銳利度、動態範圍</strong>四場戰役,
+      每一場都是「fidelity vs perception」的取捨。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 01 · 後端的整體順序</div>
+    <h2>從 RGB 到最終影像 <em>典型處理鏈</em></h2>
+    <p class="lead">
+      後端的順序比前端有彈性,各家略不同,但大致是:
+      <strong>CCM → Gamma → Denoise → Sharpen → Tone Mapping / LTM → Color enhancement → YUV conversion → Scale</strong>。
+      每一塊我會單獨拆。
+    </p>
+
+    <div class="flow-illustration">
+<span class="comment"># 後端 ISP 處理鏈(典型順序)</span>
+
+  RGB(linear)
+    │
+    ▼  <span class="key">CCM</span>          色彩校正矩陣,把 sensor 色域映射到 sRGB
+    ▼  <span class="key">Gamma</span>        從 linear 轉到感知空間(γ=2.2)
+    ▼  <span class="key">Denoise</span>      空域 + 時域去雜訊
+    ▼  <span class="key">Sharpen</span>      頻域增強邊緣
+    ▼  <span class="key">LTM</span>          局部色調映射,壓 highlight 提 shadow
+    ▼  <span class="key">Color</span>        記憶色強化、saturation、hue
+    ▼  <span class="key">YUV</span>          轉 4:2:0 給 encoder / display
+    ▼
+  Final image
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 02 · CCM(Color Correction Matrix)</div>
+    <h2>讓 sensor 的紅 <em>變成你眼中的紅</em></h2>
+    <p class="lead">
+      Sensor 上的 R/G/B filter,光譜跟人眼錐狀細胞並不完全一致——sensor 的「紅」可能涵蓋更寬範圍,
+      綠色裡可能混了一點黃。CCM 用一個 <strong>3×3 矩陣</strong>做色彩重新映射,
+      讓 sensor 拍到的顏色「對應到」標準色彩空間(通常是 sRGB 或 Display-P3)。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ CCM 的數學形式</div>
+      <svg viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg">
+        <!-- Matrix equation -->
+        <text x="80" y="100" fill="#2a2520" font-family="Source Serif 4" font-size="14" text-anchor="middle">[R']</text>
+        <text x="105" y="100" fill="#5a4f44" font-family="Source Serif 4" font-size="14">=</text>
+
+        <rect x="130" y="60" width="200" height="80" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="160" y="85" fill="#2a2520" font-family="IBM Plex Mono" font-size="12" text-anchor="middle">1.42</text>
+        <text x="230" y="85" fill="#2a2520" font-family="IBM Plex Mono" font-size="12" text-anchor="middle">-0.31</text>
+        <text x="300" y="85" fill="#2a2520" font-family="IBM Plex Mono" font-size="12" text-anchor="middle">-0.11</text>
+        <text x="160" y="105" fill="#2a2520" font-family="IBM Plex Mono" font-size="12" text-anchor="middle">-0.18</text>
+        <text x="230" y="105" fill="#2a2520" font-family="IBM Plex Mono" font-size="12" text-anchor="middle">1.42</text>
+        <text x="300" y="105" fill="#2a2520" font-family="IBM Plex Mono" font-size="12" text-anchor="middle">-0.24</text>
+        <text x="160" y="125" fill="#2a2520" font-family="IBM Plex Mono" font-size="12" text-anchor="middle">0.08</text>
+        <text x="230" y="125" fill="#2a2520" font-family="IBM Plex Mono" font-size="12" text-anchor="middle">-0.48</text>
+        <text x="300" y="125" fill="#2a2520" font-family="IBM Plex Mono" font-size="12" text-anchor="middle">1.40</text>
+
+        <text x="350" y="100" fill="#5a4f44" font-family="Source Serif 4" font-size="14">×</text>
+
+        <text x="395" y="100" fill="#2a2520" font-family="Source Serif 4" font-size="14" text-anchor="middle">[R]</text>
+        <text x="395" y="100" fill="#2a2520" font-family="Source Serif 4" font-size="14" text-anchor="middle"></text>
+
+        <text x="500" y="40" fill="#8b3a1e" font-family="Source Serif 4" font-size="12" font-style="italic" text-anchor="middle">範例(示意):D65 光源下的 CCM</text>
+        <text x="500" y="80" fill="#5a4f44" font-family="Source Serif 4" font-size="11">→ 對角線 &gt; 1:放大本色</text>
+        <text x="500" y="100" fill="#5a4f44" font-family="Source Serif 4" font-size="11">→ 非對角線 &lt; 0:減去其他色混入</text>
+        <text x="500" y="120" fill="#5a4f44" font-family="Source Serif 4" font-size="11">→ 每行總和 ≈ 1:亮度守恆</text>
+
+        <text x="400" y="180" fill="#5a4f44" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">CCM 隨光源色溫切換,通常存 D50/D65/A 三組,線性插值</text>
+      </svg>
+      <p class="diagram-caption">CCM 是個 3×3 矩陣,對角線放大本色、非對角線減去鄰色污染。各色溫下要存不同的 CCM,實際運算時根據 AWB 結果插值。</p>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">CCM tuning 的工程現實</div>
+      <ul>
+        <li><strong>產線量測</strong>——拍 24 色卡(Macbeth ColorChecker),最佳化矩陣讓拍出來的 24 色與標準色差最小</li>
+        <li><strong>Color saturation 的副作用</strong>——CCM 矩陣愈「銳利」(對角元素愈大),雜訊也被放大</li>
+        <li><strong>非線性 CCM</strong>——進階版會在不同亮度區間用不同矩陣,避免暗部色彩失真</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 03 · Gamma 與感知空間</div>
+    <h2>為什麼數位影像 <em>不是線性的</em></h2>
+    <p class="lead">
+      人眼對亮度的感知是<strong>對數的</strong>——暗部的一點點變化看得清楚,亮部要差很多才看得出來。
+      如果 8-bit 線性儲存,大部分編碼資源都浪費在「人眼根本分不出來的亮部」,而暗部又不夠細。
+      <strong>Gamma 編碼</strong>(γ ≈ 2.2)就是把線性訊號開根號之類的轉換,讓編碼資源分配更貼近人眼。
+    </p>
+
+    <p>
+      ISP 在這步把資料從<strong>線性 raw 空間</strong>轉到<strong>感知 sRGB 空間</strong>。
+      之後的所有處理(NR、sharpen、tone mapping)都在感知空間做。這也是為什麼從某個點開始,
+      ISP 就<strong>不再用 16-bit linear、改用 10-bit gamma-coded</strong>——同樣的 bit depth,
+      感知品質還更好。
+    </p>
+
+    <div class="tech-callout">
+      <div class="ct-label">Gamma 的兩個常見坑</div>
+      <ul>
+        <li><strong>HDR 系統用的不是傳統 gamma</strong>——HDR10/HLG/PQ 用 <code>SMPTE ST 2084(PQ)</code>,可以編碼到 10000 nits</li>
+        <li><strong>線性運算必須先反 gamma</strong>——例如要做縮圖(平均像素值),要在 linear 空間做才正確,做完再 gamma 回去</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 04 · Denoise(去雜訊)</div>
+    <h2>系統工程師最該懂的一塊 <em>權衡的藝術</em></h2>
+    <p class="lead">
+      雜訊永遠存在——sensor 的<strong>shot noise(光子統計雜訊)</strong>+
+      <strong>readout noise</strong> + <strong>quantization noise</strong>。低光下 SNR 差,
+      去雜訊的演算法是 ISP 後端最複雜、運算最重的部分。主要分兩派:<strong>空域去噪</strong>(在單張內找鄰居平均)
+      和<strong>時域去噪</strong>(跨幀平均)。
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">S</div>
+        <div class="step-content">
+          <h3>空域去噪(Spatial NR)</h3>
+          <div class="step-sub">在單張影像內處理</div>
+          <p>
+            最簡單:<strong>Gaussian blur</strong>,把每個 pixel 跟鄰居加權平均。問題是邊緣會糊掉。
+            進階:<strong>Bilateral filter</strong>——只平均「亮度相近」的鄰居,跨邊緣不平均。
+            再進階:<strong>Non-Local Means(NLM)</strong>——找整張圖內「pattern 相似的 patch」一起平均,
+            效果好但運算量大。最新:<strong>BM3D</strong>(block matching + 3D filter),
+            學術級準確但太慢,手機 ISP 不直接用,但 AI denoise 是這條路的延伸。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">T</div>
+        <div class="step-content">
+          <h3>時域去噪(Temporal NR / TNR)</h3>
+          <div class="step-sub">跨幀平均</div>
+          <p>
+            錄影或 multi-frame 場景特別有效。原理:<strong>雜訊是隨機的、訊號是穩定的</strong>。
+            把連續 N 幀對齊後平均,雜訊抵消、訊號保留。SNR 提升 √N 倍——3 幀平均 SNR 提升 1.7×,
+            10 幀平均提升 3.2×。
+          </p>
+          <p>
+            <strong>核心難題:對齊(alignment)</strong>。場景動了、相機抖了,直接平均會 ghosting。
+            所以 TNR 必須先做 <code>motion estimation</code>,只對「靜止區域」做時域平均,
+            「移動區域」改用空域平均。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">A</div>
+        <div class="step-content">
+          <h3>AI denoise</h3>
+          <p>
+            CNN 直接學「雜訊 raw → 乾淨 raw」的對應。訓練時用配對的「同場景、不同 ISO」資料,
+            或用合成雜訊。效果很驚人——Google Night Sight、iPhone Deep Fusion 都重度依賴 AI NR。
+            代價是<strong>運算在 NPU、不在 ISP</strong>,所以走 capture path 而非 preview path。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>類型</th>
+          <th>適合場景</th>
+          <th>運算量</th>
+          <th>副作用</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Gaussian</strong></td>
+          <td>低運算 preview</td>
+          <td>極低</td>
+          <td>邊緣模糊</td>
+        </tr>
+        <tr>
+          <td><strong>Bilateral</strong></td>
+          <td>preview / video</td>
+          <td>低</td>
+          <td>細節輕微平滑</td>
+        </tr>
+        <tr>
+          <td><strong>NLM</strong></td>
+          <td>高品質 photo</td>
+          <td>高</td>
+          <td>可能丟細節</td>
+        </tr>
+        <tr>
+          <td><strong>TNR</strong></td>
+          <td>錄影、夜景</td>
+          <td>中(對齊耗時)</td>
+          <td>移動物 ghosting</td>
+        </tr>
+        <tr>
+          <td><strong>AI NR</strong></td>
+          <td>capture, low-light</td>
+          <td>極高(NPU)</td>
+          <td>學到的偽紋路</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 05 · Sharpen</div>
+    <h2>銳化 <em>讓邊緣「看起來」更銳利</em></h2>
+    <p class="lead">
+      去雜訊一定會稍微模糊細節,所以後面要做<strong>反向操作:銳化</strong>。最常見方法是
+      <strong>Unsharp Mask</strong>:取原圖、減掉模糊版、把差(就是高頻細節)放大,加回原圖。
+      頻域上看就是「強化高頻」。
+    </p>
+
+    <div class="tech-callout">
+      <div class="ct-label">Sharpen 的副作用與防護</div>
+      <ul>
+        <li><strong>Halo</strong>——邊緣兩側出現亮/暗光暈,銳化過度的招牌副作用</li>
+        <li><strong>放大雜訊</strong>——雜訊也是高頻,銳化會把它強化,必須在 NR 之後做</li>
+        <li><strong>Edge-aware sharpening</strong>——進階版只在「真實邊緣」銳化,平坦區域不動</li>
+        <li><strong>強度與 ISO 連動</strong>——高 ISO 自動降低 sharpen 力道,避免雜訊放大</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 06 · Tone Mapping & LTM</div>
+    <h2>動態範圍壓縮 <em>從 sensor 的 14-bit 到顯示器的 8-bit</em></h2>
+    <p class="lead">
+      現代 sensor 動態範圍 12~14 bit,可以同時記錄暗部和亮部的細節。但顯示器(SDR)只有 8-bit。
+      如果直接 truncate,要嘛壓死亮部、要嘛犧牲暗部。Tone mapping 的任務是<strong>「智慧地壓縮 14-bit → 8-bit」</strong>,
+      讓亮部不爆、暗部仍有層次。
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">G</div>
+        <div class="step-content">
+          <h3>Global Tone Mapping(GTM)</h3>
+          <p>
+            <strong>整張用同一條曲線</strong>映射,例如 Reinhard 曲線、log 曲線、Hable filmic 曲線。
+            優點是不會有「區域不一致」感;缺點是不夠靈活——
+            如果畫面有強對比(室內 + 窗戶),怎麼選曲線都不對。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">L</div>
+        <div class="step-content">
+          <h3>Local Tone Mapping(LTM)</h3>
+          <div class="step-sub">手機 HDR 照片的真正主角</div>
+          <p>
+            <strong>把畫面切成區域,每塊用不同曲線</strong>。暗的區域用「拉亮曲線」,亮的區域用「壓亮曲線」,
+            結合起來就達成「窗外也看得清楚、室內也不會發黑」。
+            典型實作是 <code>local Laplacian filter</code> 或 <code>guided filter</code>。
+            手機照片所謂的「HDR 風格」(明暗都清楚但有點塑膠感)就是 LTM 強度高造成的。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">D</div>
+        <div class="step-content">
+          <h3>HDR display tone mapping</h3>
+          <p>
+            另一種場景:照片本來就 HDR(HDR10、HLG),但要顯示在 SDR 螢幕上。這時 tone mapping 在
+            display pipe 做,而不是 ISP——但概念一樣。HDR → SDR 的 tone mapping 是個獨立研究領域。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">LTM 的常見偽影</div>
+      <ul>
+        <li><strong>Halo</strong>——LTM 過強時,亮暗邊界處會出現明顯光環</li>
+        <li><strong>對比反轉</strong>——暗區被拉太亮,反而比原本亮區更亮(extreme cases)</li>
+        <li><strong>「HDR 塑膠感」</strong>——LTM 強度均勻過頭,看起來假</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 07 · Color enhancement</div>
+    <h2>記憶色 <em>讓藍天更藍、皮膚更討喜</em></h2>
+    <p class="lead">
+      到這裡顏色已經「準」了,但「準」不等於「好看」。<strong>記憶色(memory color)</strong>
+      是人腦對特定顏色的偏見——天空應該很藍、草地應該很綠、皮膚應該偏紅潤。
+      Color enhancement 對<strong>特定色相做選擇性飽和度提升</strong>,讓這些區域「更符合期待」。
+    </p>
+
+    <p>
+      實作上是<strong>HSV 域的選擇性操作</strong>:檢測 hue 落在「藍天」、「草地」、「皮膚」的區間,
+      對該 hue 提 saturation。每個品牌的「色彩風格」差異主要來自這裡——
+      iPhone 偏自然、Samsung 偏鮮豔、小米偏「萊卡」濃郁,根本是 color enhancement 的調味。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 08 · 本章重點回顧</div>
+    <h2>後端 ISP <em>面試要點</em></h2>
+
+    <div class="scenario-card">
+      <div class="label">核心觀念</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span><strong>CCM 把 sensor 色域映射到標準色空間</strong>,要分色溫存多份</span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span><strong>Gamma 是感知空間轉換</strong>,讓 bit depth 分配貼合人眼非線性</span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span><strong>空域 NR vs 時域 NR</strong>——前者單張內、後者跨幀對齊後平均</span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span><strong>NR 必須在 Sharpen 之前</strong>——銳化會放大雜訊</span>
+        </div>
+        <div class="action-line">
+          <span class="num">5</span>
+          <span class="arrow">→</span>
+          <span><strong>LTM 是手機 HDR 的真主角</strong>,但過強會 halo + 塑膠感</span>
+        </div>
+        <div class="action-line">
+          <span class="num">6</span>
+          <span class="arrow">→</span>
+          <span><strong>各廠的色彩風格</strong> 主要差異在 color enhancement 的 tuning</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="chapter-nav">
+  <div class="container">
+    <div class="chapter-nav-grid">
+      <a href="ch05-3a-algorithms.html" class="nav-card prev">
+        <div class="label">Prev</div>
+        <h4>3A 演算法</h4>
+        <p>AE / AF / AWB 回授迴路。</p>
+      </a>
+      <a href="ch07-multiframe-hdr.html" class="nav-card next">
+        <div class="label">Next</div>
+        <h4>多幀融合、HDR 與夜景模式</h4>
+        <p>HDR merge、MFNR、night mode。</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Camera Atlas · Complete Edition
+  </div>
+</footer>
+
+</body>
+</html>

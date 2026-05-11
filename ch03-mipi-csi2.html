@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIPI CSI-2 與資料流 — Camera Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Noto+Serif+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>(function(){try{var s=parseInt(localStorage.getItem('webatlas_text_size'),10);var a=[15,16,17,18,19,20,22,24];if(!isNaN(s)&&s>=0&&s<a.length){document.documentElement.style.setProperty('--reader-fz',a[s]+'px');}}catch(e){}})();</script>
+<link rel="stylesheet" href="style.css">
+<script defer src="reader.js"></script>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="container">
+    <div class="top-bar-inner">
+      <a href="index.html" class="logo">⬢ Camera Atlas</a>
+      <nav>
+        <a href="index.html">總目錄</a>
+        <a href="ch03-mipi-csi2.html" class="active">MIPI CSI-2</a>
+        <a href="glossary.html">詞彙表</a>
+      </nav>
+      <span>Vol.03</span>
+      <div class="font-control" role="group" aria-label="字體大小">
+        <button type="button" class="fz-btn" data-action="dec" aria-label="縮小字體">A<span class="fz-sym">−</span></button>
+        <button type="button" class="fz-btn" data-action="inc" aria-label="放大字體">A<span class="fz-sym">+</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="kicker">
+      <span class="dot"></span>
+      Vol. 03 · MIPI &amp; Data Flow
+    </div>
+    <h1>MIPI CSI-2 與資料流<br>sensor 怎麼把資料 <em>塞進 SoC</em></h1>
+    <p class="hero-sub">
+      Sensor 跟 SoC 之間靠 <strong>MIPI CSI-2</strong> 講話。它不是「線多就快」,而是一套有 packet、
+      lane、virtual channel、CRC 的完整協議。理解它,你才能算頻寬、找 EMI、debug 為什麼某個解析度
+      就是上不去。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 01 · 為什麼是 MIPI</div>
+    <h2>從 parallel sensor 到差分串列 <em>歷史的偷懶</em></h2>
+    <p class="lead">
+      2000 年代的 sensor 是 parallel 介面——10 條資料線 + clock + sync,EMI 大、線多、走線難。
+      手機進入薄型化後,這套行不通了。<strong>MIPI Alliance</strong>(Mobile Industry Processor Interface)
+      推出了 <code>D-PHY</code> 和 <code>CSI-2(Camera Serial Interface)</code>,
+      用差分串列搞定一切。
+    </p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>世代</th>
+          <th>實體層</th>
+          <th>每 lane 速度</th>
+          <th>編碼</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>D-PHY v1.x</strong></td>
+          <td>差分 LP/HS 雙模式</td>
+          <td>1.5 Gbps</td>
+          <td>無</td>
+        </tr>
+        <tr>
+          <td><strong>D-PHY v2.5+</strong></td>
+          <td>差分</td>
+          <td>4.5 Gbps</td>
+          <td>無</td>
+        </tr>
+        <tr>
+          <td><strong>C-PHY v1.x</strong></td>
+          <td>3-wire trio,3-level</td>
+          <td>2.5 Gsym/s ≈ 5.7 Gbps</td>
+          <td>3-phase symbol</td>
+        </tr>
+        <tr>
+          <td><strong>C-PHY v2.0+</strong></td>
+          <td>3-wire trio</td>
+          <td>~8 Gbps/trio</td>
+          <td>3-phase symbol</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="tech-callout">
+      <div class="ct-label">D-PHY vs C-PHY 的取捨</div>
+      <ul>
+        <li><strong>D-PHY</strong>——4 lane 是標配,每 lane 一對差分線,共 8 條 + clock 2 條 = 10 條</li>
+        <li><strong>C-PHY</strong>——3 條一組(trio),不需要額外 clock,因為 clock 內嵌在 symbol 裡。<strong>線少 + 速度高</strong></li>
+        <li>實務上旗艦 sensor(IMX989、HM3)都同時支援兩種模式,PCB 走線決定用哪個</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 02 · 頻寬計算</div>
+    <h2>算給你看 <em>一張 4K HDR 影片要多少 Gbps</em></h2>
+    <p class="lead">
+      頻寬計算是 camera 系統設計的基本功。基本公式是:
+      <strong>bandwidth = width × height × bit_depth × fps × 1.25(overhead)</strong>。
+      乘 1.25 是因為 MIPI 有 packet header、line/frame sync、CRC 等額外負擔。
+    </p>
+
+    <div class="scenario-card">
+      <div class="label">Scenario · 一個 4K 60fps 10-bit HDR 的影片要多少頻寬?</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span>3840 × 2160 × 10 bit × 60 fps = 4.98 Gbps(純資料)</span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span>× 1.25 overhead = 6.2 Gbps(MIPI 線上的實際流量)</span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span>D-PHY 2.5 Gbps × 4 lane = 10 Gbps,夠用</span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span>如果是 staggered HDR(同時送 2 張曝光),× 2 = 12.4 Gbps → <strong>得用 C-PHY 或更高速 D-PHY</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <p>
+      旗艦手機常見的 <strong>200MP 高解析度模式</strong>,raw 資料量大概是
+      16384 × 12288 × 10 × 30fps × 1.25 ≈ <strong>75 Gbps</strong>——這已經完全超過任何 MIPI 規格。
+      所以實務上 200MP 模式只在<strong>拍照模式</strong>用,而且 sensor 先做 binning(4-in-1)輸出 50MP,
+      之後可選擇性升頻到 200MP。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 03 · Packet 與 Virtual Channel</div>
+    <h2>CSI-2 是 packet-based <em>怎麼一條線同時傳多個 stream</em></h2>
+    <p class="lead">
+      CSI-2 的傳輸單位是 <strong>packet</strong>,不是 raw bit stream。每個 packet 有 header、payload、CRC。
+      Header 裡有 <code>data type</code> 和 <code>virtual channel ID</code>——這兩個欄位讓「一條 MIPI 線傳多種資料」變得可能。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ CSI-2 packet 結構與 virtual channel</div>
+      <svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
+        <!-- Packet 結構 -->
+        <text x="400" y="25" fill="#2a2520" font-family="Source Serif 4" font-size="14" font-weight="600" text-anchor="middle">Long Packet 結構</text>
+
+        <rect x="60" y="50" width="60" height="40" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="90" y="68" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="middle">DI</text>
+        <text x="90" y="82" fill="#5a4f44" font-family="Source Serif 4" font-size="9" text-anchor="middle">8b</text>
+
+        <rect x="120" y="50" width="80" height="40" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="160" y="68" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="middle">WC</text>
+        <text x="160" y="82" fill="#5a4f44" font-family="Source Serif 4" font-size="9" text-anchor="middle">16b word count</text>
+
+        <rect x="200" y="50" width="60" height="40" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="230" y="68" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="middle">ECC</text>
+        <text x="230" y="82" fill="#5a4f44" font-family="Source Serif 4" font-size="9" text-anchor="middle">8b</text>
+
+        <rect x="260" y="50" width="380" height="40" fill="#faf7f2" stroke="#d9cfbf"/>
+        <text x="450" y="68" fill="#2a2520" font-family="Source Serif 4" font-size="12" text-anchor="middle">Payload(image data,長度 = WC × byte)</text>
+
+        <rect x="640" y="50" width="80" height="40" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="680" y="68" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="middle">CRC-16</text>
+
+        <!-- DI 展開 -->
+        <text x="90" y="110" fill="#8b3a1e" font-family="Source Serif 4" font-size="10" text-anchor="middle" font-style="italic">DI = VC[7:6] + DT[5:0]</text>
+        <line x1="90" y1="90" x2="90" y2="100" stroke="#8b3a1e" stroke-dasharray="2,2"/>
+
+        <!-- VC 範例 -->
+        <text x="400" y="160" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">Virtual Channel 多工:同一條 MIPI 可同時傳多個資料流</text>
+
+        <rect x="60" y="180" width="180" height="40" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="150" y="200" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="middle" font-weight="600">VC0 · full-res raw</text>
+        <text x="150" y="214" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">capture path</text>
+
+        <rect x="260" y="180" width="180" height="40" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="350" y="200" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="middle" font-weight="600">VC1 · preview YUV</text>
+        <text x="350" y="214" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">縮圖預覽</text>
+
+        <rect x="460" y="180" width="180" height="40" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="550" y="200" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="middle" font-weight="600">VC2 · PDAF / metadata</text>
+        <text x="550" y="214" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">對焦相位資料</text>
+
+        <!-- DT 範例 -->
+        <text x="400" y="255" fill="#2a2520" font-family="Source Serif 4" font-size="12" font-weight="600" text-anchor="middle">常見 Data Type:</text>
+        <text x="100" y="280" fill="#5a4f44" font-family="IBM Plex Mono" font-size="11">0x2A · RAW8</text>
+        <text x="240" y="280" fill="#5a4f44" font-family="IBM Plex Mono" font-size="11">0x2B · RAW10</text>
+        <text x="380" y="280" fill="#5a4f44" font-family="IBM Plex Mono" font-size="11">0x2C · RAW12</text>
+        <text x="520" y="280" fill="#5a4f44" font-family="IBM Plex Mono" font-size="11">0x18 · YUV420 8-bit</text>
+        <text x="690" y="280" fill="#5a4f44" font-family="IBM Plex Mono" font-size="11">0x12 · Embedded</text>
+      </svg>
+      <p class="diagram-caption">CSI-2 packet 結構:Data Identifier(DI)裡的 2 bit VC + 6 bit DT 決定了「這個 packet 是哪個 stream 的什麼格式」。VC0~3 讓一條 MIPI 物理線可同時跑多個邏輯 stream。</p>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">為什麼 Virtual Channel 對系統設計重要</div>
+      <ul>
+        <li><strong>多 sensor 共享 MIPI</strong>——例如智慧眼鏡兩顆 sensor,可以共用同一個 CSI receiver</li>
+        <li><strong>PDAF metadata 與影像分離</strong>——對焦用的相位資料走 VC2,不污染主資料流</li>
+        <li><strong>Sensor embedded data</strong>——sensor 把自己的 gain/exposure 設定塞在 VC 裡跟著傳,debug 必看</li>
+        <li><strong>HDR 多曝光</strong>——staggered HDR 可以把不同曝光放在不同 VC,後端分流處理</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 04 · LP / HS 雙模式</div>
+    <h2>D-PHY 的低功耗訊號 <em>idle 時不發狂跑</em></h2>
+    <p class="lead">
+      D-PHY 有兩個工作模式:<strong>High-Speed(HS)</strong>差分傳資料,<strong>Low-Power(LP)</strong>
+      單端發控制訊號。Sensor 不是 24 小時噴 1.5 Gbps,而是「拍到一行 → HS burst → 進 LP idle → 下一行 HS burst」。
+      這個切換是 EMI 的來源之一,也是功耗大頭。
+    </p>
+
+    <div class="flow-illustration">
+<span class="comment"># D-PHY 一條 lane 的時序</span>
+
+  ┌──── HS burst ────┐         ┌──── HS burst ────┐
+  │ 1.5 Gbps 差分    │  LP-11  │ 1.5 Gbps 差分    │  LP-11
+──┘  傳一行 raw      └─────────┘  傳下一行 raw    └─────
+                       ↑ idle              ↑ idle
+
+  <span class="key">HST = HS-transmit</span>     <span class="key">LP-11 = 兩線都 high,idle</span>
+  <span class="warn">⚠ HS↔LP 切換太頻繁會引入 EMI 與 timing 風險</span>
+    </div>
+
+    <p>
+      實務上你會看到 sensor datasheet 標註 <code>t_HS-PREPARE</code>、<code>t_LPX</code> 等時序參數——
+      這些都是 D-PHY spec 規定的<strong>切換窗口</strong>。SoC 端的 CSI receiver PHY 必須能容忍 sensor
+      端的時序漂移,所以調 sensor 時若看到 packet error,通常先看 PHY timing tuning。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 05 · I²C 控制平面</div>
+    <h2>MIPI 是「資料」<em>I²C 才是「控制」</em></h2>
+    <p class="lead">
+      MIPI CSI-2 只負責<strong>從 sensor 到 SoC 的單向資料流</strong>。要設定 sensor 的曝光時間、gain、
+      解析度、輸出格式,得透過另一條線:<strong>I²C 或 SCCB(Serial Camera Control Bus,I²C 變體)</strong>。
+      這條控制線決定了 3A 迴路的 latency 下限。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ Camera module 完整介面</div>
+      <svg viewBox="0 0 800 260" xmlns="http://www.w3.org/2000/svg">
+        <!-- Sensor -->
+        <rect x="60" y="60" width="180" height="140" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="150" y="85" fill="#2a2520" font-family="Source Serif 4" font-size="14" font-weight="600" text-anchor="middle">Camera Module</text>
+        <text x="150" y="105" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">Sensor + VCM</text>
+
+        <!-- SoC -->
+        <rect x="560" y="60" width="180" height="140" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="650" y="85" fill="#2a2520" font-family="Source Serif 4" font-size="14" font-weight="600" text-anchor="middle">SoC</text>
+        <text x="650" y="105" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">AP + ISP</text>
+
+        <!-- MIPI -->
+        <line x1="240" y1="115" x2="560" y2="115" stroke="#8b3a1e" stroke-width="2.5" marker-end="url(#a1)"/>
+        <text x="400" y="105" fill="#8b3a1e" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">MIPI CSI-2</text>
+        <text x="400" y="130" fill="#5a4f44" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">image data(高頻寬、單向)</text>
+
+        <!-- I2C -->
+        <line x1="240" y1="155" x2="560" y2="155" stroke="#2c5d8f" stroke-width="2" marker-end="url(#a2)"/>
+        <line x1="560" y1="160" x2="240" y2="160" stroke="#2c5d8f" stroke-width="2" marker-end="url(#a3)"/>
+        <text x="400" y="148" fill="#2c5d8f" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">I²C / SCCB</text>
+        <text x="400" y="180" fill="#5a4f44" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">控制指令(400kHz / 1MHz、雙向)</text>
+
+        <!-- Power & Clock -->
+        <line x1="240" y1="195" x2="560" y2="195" stroke="#2d6a3e" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <text x="400" y="218" fill="#2d6a3e" font-family="Source Serif 4" font-size="12" font-weight="600" text-anchor="middle">Power(AVDD, DVDD, IOVDD) + MCLK</text>
+
+        <defs>
+          <marker id="a1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#8b3a1e"/>
+          </marker>
+          <marker id="a2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#2c5d8f"/>
+          </marker>
+          <marker id="a3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#2c5d8f"/>
+          </marker>
+        </defs>
+      </svg>
+      <p class="diagram-caption">Sensor 與 SoC 之間至少四種訊號:MIPI(資料、單向高速)、I²C(控制、雙向)、Power rails、MCLK(由 SoC 給 sensor 的參考頻率)。少一條都不會動。</p>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">3A latency 為什麼跟 I²C 有關</div>
+      <ul>
+        <li>AE 算完新曝光值後,要透過 I²C 寫回 sensor 寄存器</li>
+        <li>I²C 400kHz 時,寫一組 register 大概 200μs,寫一輪所有 3A 設定可能 1~2ms</li>
+        <li>Sensor 內部的<strong>「group hold」</strong>機制讓多筆設定原子生效,避免半生不熟的曝光</li>
+        <li>新一代 sensor 改用 <strong>I3C(1.6/12MHz)</strong>,latency 直接降一個數量級</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 06 · 本章重點回顧</div>
+    <h2>MIPI 與資料流 <em>面試重點</em></h2>
+
+    <div class="scenario-card">
+      <div class="label">技術面試常見題</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span><strong>D-PHY vs C-PHY?</strong>D 用差分對 + clock lane,C 用 3-wire trio,clock 內嵌</span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span><strong>頻寬怎麼算?</strong>W × H × bit × fps × 1.25 overhead</span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span><strong>VC 有什麼用?</strong>一條 MIPI 同時跑多個 stream(預覽 / capture / PDAF / metadata)</span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span><strong>HS 跟 LP 為什麼要切換?</strong>省功耗,但切換窗口會引入 EMI 與時序風險</span>
+        </div>
+        <div class="action-line">
+          <span class="num">5</span>
+          <span class="arrow">→</span>
+          <span><strong>3A 控制走哪?</strong>I²C/I3C,不走 MIPI;影響 3A 收斂 latency</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="chapter-nav">
+  <div class="container">
+    <div class="chapter-nav-grid">
+      <a href="ch02-pipeline-overview.html" class="nav-card prev">
+        <div class="label">Prev</div>
+        <h4>Camera Pipeline 全景圖</h4>
+        <p>整條 pipeline 的全貌。</p>
+      </a>
+      <a href="ch04-isp-frontend.html" class="nav-card next">
+        <div class="label">Next</div>
+        <h4>前端校正</h4>
+        <p>BLC、LSC、defect 校正、demosaic、WB。</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Camera Atlas · Complete Edition
+  </div>
+</footer>
+
+</body>
+</html>

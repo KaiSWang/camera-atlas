@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Camera Pipeline 全景圖 — Camera Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Noto+Serif+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>(function(){try{var s=parseInt(localStorage.getItem('webatlas_text_size'),10);var a=[15,16,17,18,19,20,22,24];if(!isNaN(s)&&s>=0&&s<a.length){document.documentElement.style.setProperty('--reader-fz',a[s]+'px');}}catch(e){}})();</script>
+<link rel="stylesheet" href="style.css">
+<script defer src="reader.js"></script>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="container">
+    <div class="top-bar-inner">
+      <a href="index.html" class="logo">⬢ Camera Atlas</a>
+      <nav>
+        <a href="index.html">總目錄</a>
+        <a href="ch02-pipeline-overview.html" class="active">Pipeline 全景</a>
+        <a href="glossary.html">詞彙表</a>
+      </nav>
+      <span>Vol.02</span>
+      <div class="font-control" role="group" aria-label="字體大小">
+        <button type="button" class="fz-btn" data-action="dec" aria-label="縮小字體">A<span class="fz-sym">−</span></button>
+        <button type="button" class="fz-btn" data-action="inc" aria-label="放大字體">A<span class="fz-sym">+</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="kicker">
+      <span class="dot"></span>
+      Vol. 02 · Pipeline Overview
+    </div>
+    <h1>Camera Pipeline 全景圖<br>從 sensor 到 display 中間 <em>發生了什麼</em></h1>
+    <p class="hero-sub">
+      你按下快門那一刻,有<strong>幾十個模組同時在動</strong>:sensor 還在曝光、ISP 在跑前一張、
+      AE 在算下一張的曝光、encoder 在等 buffer、display 在重新整理 preview。
+      這一章把整條路展開,讓你看清楚每一塊在做什麼、彼此怎麼握手。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 01 · 系統全景</div>
+    <h2>整條 pipeline <em>到底有多少塊磚</em></h2>
+    <p class="lead">
+      從硬體角度看,一個現代手機 camera 系統至少包含:<strong>Camera module(sensor + lens + VCM)、
+      MIPI CSI-2 介面、CSI receiver(在 SoC 內)、前端 ISP、DRAM、後端 ISP、encoder、display</strong>。
+      每一塊都有自己的 clock、power domain、buffer。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ 完整 camera pipeline 資料流</div>
+      <svg viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg">
+        <!-- Camera module -->
+        <rect x="20" y="30" width="120" height="80" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="80" y="55" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">Camera Module</text>
+        <text x="80" y="75" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">Lens + VCM</text>
+        <text x="80" y="92" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">CMOS sensor</text>
+
+        <!-- MIPI CSI-2 -->
+        <line x1="140" y1="70" x2="200" y2="70" stroke="#8b3a1e" stroke-width="2" marker-end="url(#arr)"/>
+        <text x="170" y="60" fill="#8b3a1e" font-family="IBM Plex Mono" font-size="10" text-anchor="middle">MIPI</text>
+        <text x="170" y="85" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">CSI-2</text>
+
+        <!-- SoC frontend -->
+        <rect x="200" y="30" width="120" height="80" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="260" y="55" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">CSI Receiver</text>
+        <text x="260" y="75" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">+ Front-end ISP</text>
+        <text x="260" y="92" fill="#5a4f44" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">BLC, LSC, demosaic</text>
+
+        <!-- DRAM -->
+        <line x1="260" y1="110" x2="260" y2="160" stroke="#8b3a1e" stroke-width="2" marker-end="url(#arr)"/>
+        <rect x="200" y="160" width="120" height="50" rx="4" fill="#faf7f2" stroke="#d9cfbf" stroke-dasharray="3,2"/>
+        <text x="260" y="180" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">DRAM</text>
+        <text x="260" y="198" fill="#5a4f44" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">raw / YUV buffer</text>
+
+        <!-- Back-end ISP -->
+        <line x1="320" y1="185" x2="370" y2="185" stroke="#8b3a1e" stroke-width="2" marker-end="url(#arr)"/>
+        <rect x="370" y="150" width="130" height="70" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="435" y="173" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">Back-end ISP</text>
+        <text x="435" y="190" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">tone, NR, sharpen</text>
+        <text x="435" y="205" fill="#5a4f44" font-family="Source Serif 4" font-size="10" font-style="italic" text-anchor="middle">3A stats out</text>
+
+        <!-- NPU -->
+        <line x1="435" y1="150" x2="435" y2="115" stroke="#8b3a1e" stroke-width="1.5" stroke-dasharray="3,2"/>
+        <rect x="370" y="60" width="130" height="55" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="435" y="82" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">NPU / GPU</text>
+        <text x="435" y="100" fill="#5a4f44" font-family="Source Serif 4" font-size="10" font-style="italic" text-anchor="middle">AI denoise, seg</text>
+
+        <!-- Multi-frame engine -->
+        <line x1="500" y1="185" x2="550" y2="185" stroke="#8b3a1e" stroke-width="2" marker-end="url(#arr)"/>
+        <rect x="550" y="150" width="130" height="70" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="615" y="173" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">Multi-frame</text>
+        <text x="615" y="190" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">HDR / MFNR</text>
+        <text x="615" y="205" fill="#5a4f44" font-family="Source Serif 4" font-size="10" font-style="italic" text-anchor="middle">align + merge</text>
+
+        <!-- Encoder -->
+        <line x1="615" y1="220" x2="615" y2="265" stroke="#8b3a1e" stroke-width="2" marker-end="url(#arr)"/>
+        <rect x="550" y="265" width="130" height="40" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="615" y="282" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">Encoder</text>
+        <text x="615" y="298" fill="#5a4f44" font-family="Source Serif 4" font-size="10" font-style="italic" text-anchor="middle">JPEG / HEVC / AV1</text>
+
+        <!-- Display -->
+        <line x1="500" y1="280" x2="550" y2="280" stroke="#5a4f44" stroke-width="1.5" stroke-dasharray="3,2"/>
+        <rect x="370" y="260" width="130" height="40" rx="4" fill="#faf7f2" stroke="#d9cfbf"/>
+        <text x="435" y="277" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">Display Pipe</text>
+        <text x="435" y="293" fill="#5a4f44" font-family="Source Serif 4" font-size="10" font-style="italic" text-anchor="middle">preview path</text>
+
+        <!-- 3A loop back -->
+        <path d="M370 200 Q200 250 200 110" stroke="#2d6a3e" stroke-width="1.5" fill="none" stroke-dasharray="4,3" marker-end="url(#arr-g)"/>
+        <text x="160" y="260" fill="#2d6a3e" font-family="Source Serif 4" font-size="11" font-style="italic">3A 回授 → sensor 控制</text>
+
+        <text x="700" y="40" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="end">外部</text>
+        <line x1="660" y1="40" x2="700" y2="40" stroke="#5a4f44" stroke-width="0.5"/>
+        <text x="780" y="40" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="end">SoC 內</text>
+
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#8b3a1e"/>
+          </marker>
+          <marker id="arr-g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#2d6a3e"/>
+          </marker>
+        </defs>
+      </svg>
+      <p class="diagram-caption">完整 camera pipeline:資料從 sensor 經 MIPI 進入 SoC,前端 ISP 先處理 raw,寫回 DRAM,後端 ISP 再做進階運算,最後分流到 encoder(存檔)與 display(預覽)。3A 統計值會回授到 sensor 改變曝光/聚焦/白平衡。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 02 · 前端 vs 後端 ISP</div>
+    <h2>為什麼 ISP 要切兩段 <em>那條虛線在哪</em></h2>
+    <p class="lead">
+      你會在規格表看到「Front-end ISP / Back-end ISP」這個分法。簡單講就是:<strong>前端做 raw domain
+      的事(每張都要做、沒得省)、後端做 YUV/RGB domain 的事(可以挑選性做、跨幀做)</strong>。
+      切分原因是<strong>頻寬與功耗</strong>。
+    </p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>區段</th>
+          <th>資料格式</th>
+          <th>典型處理</th>
+          <th>是否每幀都做</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Front-end ISP</strong></td>
+          <td>Bayer raw</td>
+          <td>BLC、LSC、defect 校正、demosaic、WB、HDR merge</td>
+          <td class="yes">每張必做</td>
+        </tr>
+        <tr>
+          <td><strong>Back-end ISP</strong></td>
+          <td>YUV / RGB</td>
+          <td>tone mapping、NR、sharpen、CCM、gamma、scale</td>
+          <td class="no">可選擇路徑</td>
+        </tr>
+        <tr>
+          <td><strong>Multi-frame engine</strong></td>
+          <td>YUV(或 raw)</td>
+          <td>HDR/夜景合成、align、merge、ghost removal</td>
+          <td class="no">只在拍照時跑</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="tech-callout">
+      <div class="ct-label">為什麼這個切分省功耗</div>
+      <ul>
+        <li><strong>前端的輸出寫入 DRAM 時通常已經 demosaic + WB + 縮小</strong>,後端要的資料量降低</li>
+        <li><strong>Preview 路徑可以走「短路」</strong>——前端直接縮圖出 1080p 給 display,跳過後端複雜運算</li>
+        <li><strong>Capture 路徑才把 full-res 餵給後端</strong>,集中力氣處理「使用者最終會看的那張」</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 03 · Preview vs Capture vs Video</div>
+    <h2>同一條 pipeline <em>三種使用情境</em></h2>
+    <p class="lead">
+      使用者只看到「按快門」和「錄影」,但內部其實有三種非常不同的 pipeline 配置:
+      <strong>preview path</strong>(取景中,要低 latency)、
+      <strong>capture path</strong>(按快門那瞬間,要最高畫質)、
+      <strong>video path</strong>(連續錄影,要穩定 fps)。
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">P</div>
+        <div class="step-content">
+          <h3>Preview Path(取景)</h3>
+          <div class="step-sub">目標:60fps、&lt; 100ms motion-to-photon latency</div>
+          <p>
+            Sensor 用 binning 模式輸出 4K → 前端 ISP 縮成 1080p → 後端做輕量 tone mapping →
+            送 display。<strong>跳過所有 multi-frame 處理</strong>,因為使用者只是在「看」。
+            這條路徑的 KPI 是 <code>motion-to-photon latency</code>——你手晃動到畫面更新之間的時間。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">C</div>
+        <div class="step-content">
+          <h3>Capture Path(拍照)</h3>
+          <div class="step-sub">目標:最高畫質,latency 預算 200~800ms</div>
+          <p>
+            按下快門那一刻,系統會啟動<strong>「Zero Shutter Lag(ZSL)」</strong>機制——其實畫面早就在拍了,
+            sensor 一直把最近幾張存在 circular buffer 裡,使用者按快門時取出時間點最接近的那批,
+            送進 multi-frame engine 做 HDR / 夜景合成。所以「快門感覺很即時」,
+            但其實後台正在處理 4~10 張 raw。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">V</div>
+        <div class="step-content">
+          <h3>Video Path(錄影)</h3>
+          <div class="step-sub">目標:穩定 fps、不能 drop frame</div>
+          <p>
+            Sensor 持續輸出 30/60/120 fps,前端 ISP 即時處理後 <strong>直接送 encoder</strong>,
+            不經過 multi-frame。最大壓力來自<strong>固定 frame budget</strong>:30fps 就只有 33ms 預算,
+            120fps 就只剩 8ms。任何環節超時都會 drop frame,使用者立刻看到卡頓。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="scenario-card">
+      <div class="label">Scenario · 你按一次快門背後發生的事</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span>取景中,sensor 一直以 30fps 跑,前 8 張 raw 始終存在 ZSL ring buffer</span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span>使用者按下快門,APP 發 capture request 給 camera HAL</span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span>HAL 從 ring buffer 取出最近 N 張 raw,標記 capture 時間點</span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span>同時觸發 sensor 再拍 2 張不同曝光(HDR 長/短曝)</span>
+        </div>
+        <div class="action-line">
+          <span class="num">5</span>
+          <span class="arrow">→</span>
+          <span>Multi-frame engine 對齊 → 合成 → 後端 ISP 加強 → encoder 出 JPEG</span>
+        </div>
+        <div class="action-line">
+          <span class="num">6</span>
+          <span class="arrow">→</span>
+          <span>儲存到磁碟,通知 gallery,整個流程約 300~600ms</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 04 · 軟體堆疊</div>
+    <h2>從 App 到硬體 <em>中間有多少層</em></h2>
+    <p class="lead">
+      系統工程師面試最容易被問到的是<strong>「資料路徑上有多少 software stack?」</strong>。Android 上一個典型的 camera 呼叫路徑如下。
+    </p>
+
+    <div class="flow-illustration">
+<span class="comment"># Android Camera 軟體堆疊</span>
+
+  App(Java/Kotlin)
+   │  Camera2 / CameraX API
+   ▼
+  Camera Framework(camera service)
+   │  AIDL / Binder IPC
+   ▼
+  Camera HAL3(Vendor 實作)
+   │  e.g. <span class="key">camx + chi-cdk</span>(Qualcomm)
+   │  e.g. <span class="key">imgsensor + mtkcam</span>(MediaTek)
+   ▼
+  Kernel driver
+   │  v4l2 / DMA-buf
+   ▼
+  ISP / CSI hardware
+   │
+   ▼
+  Sensor(I²C 控制 + MIPI 資料)
+   <span class="warn">⚠ 每一層都會引入 latency 與 buffer</span>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">Stack · 系統工程師面試常被深入問</div>
+      <ul>
+        <li><strong>Camera HAL3</strong>——Android 的 vendor HAL 介面,規範了 request/result 模型</li>
+        <li><strong>camx / chi-cdk</strong>——Qualcomm 的 camera framework,智慧眼鏡開發會直接碰</li>
+        <li><strong>mtkcam(Hal3a)</strong>——聯發科的 camera HAL 實作,你應該很熟</li>
+        <li><strong>DMA-buf</strong>——zero-copy buffer sharing,sensor → ISP → encoder 之間就靠它</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 05 · 本章重點回顧</div>
+    <h2>Pipeline 全景 <em>面試最常考的觀念</em></h2>
+
+    <div class="scenario-card">
+      <div class="label">記住這幾件事</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span><strong>前端 ISP 處理 raw,後端 ISP 處理 YUV</strong>——切分是為了省 DRAM 頻寬與功耗</span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span><strong>Preview / Capture / Video 是三條獨立的路徑</strong>,但共用前端 ISP</span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span><strong>ZSL(Zero Shutter Lag)</strong>讓快門「秒回」,核心是 ring buffer</span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span><strong>3A 是一個回授迴路</strong>:後端算統計值,前端去調 sensor 與 lens</span>
+        </div>
+        <div class="action-line">
+          <span class="num">5</span>
+          <span class="arrow">→</span>
+          <span><strong>Camera HAL3 + camx/chi-cdk</strong> 是 Qualcomm 平台必懂的字典</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="chapter-nav">
+  <div class="container">
+    <div class="chapter-nav-grid">
+      <a href="ch01-optics-sensor.html" class="nav-card prev">
+        <div class="label">Prev</div>
+        <h4>光路與感光元件</h4>
+        <p>光怎麼變成 bit。</p>
+      </a>
+      <a href="ch03-mipi-csi2.html" class="nav-card next">
+        <div class="label">Next</div>
+        <h4>MIPI CSI-2 與資料流</h4>
+        <p>sensor 與 SoC 之間的高速介面。</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Camera Atlas · Complete Edition
+  </div>
+</footer>
+
+</body>
+</html>

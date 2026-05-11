@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>詞彙表 — Camera Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Noto+Serif+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>(function(){try{var s=parseInt(localStorage.getItem('webatlas_text_size'),10);var a=[15,16,17,18,19,20,22,24];if(!isNaN(s)&&s>=0&&s<a.length){document.documentElement.style.setProperty('--reader-fz',a[s]+'px');}}catch(e){}})();</script>
+<link rel="stylesheet" href="style.css">
+<script defer src="reader.js"></script>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="container">
+    <div class="top-bar-inner">
+      <a href="index.html" class="logo">⬢ Camera Atlas</a>
+      <nav>
+        <a href="index.html">總目錄</a>
+        <a href="ch01-optics-sensor.html">第一章</a>
+        <a href="glossary.html" class="active">詞彙表</a>
+      </nav>
+      <span>Appendix</span>
+      <div class="font-control" role="group" aria-label="字體大小">
+        <button type="button" class="fz-btn" data-action="dec" aria-label="縮小字體">A<span class="fz-sym">−</span></button>
+        <button type="button" class="fz-btn" data-action="inc" aria-label="放大字體">A<span class="fz-sym">+</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="kicker">
+      <span class="dot"></span>
+      Appendix · Glossary
+    </div>
+    <h1>詞彙表<br>面試前 <em>最後一輪複習</em></h1>
+    <p class="hero-sub">
+      把書裡所有縮寫與術語一次列清楚,按主題分組——面試前 30 分鐘 scroll 一遍,看哪個忘了直接回章節。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Sensor &amp; Optics</div>
+    <h2>感光元件與光學</h2>
+    <div class="glossary">
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">CMOS</div>
+          <div class="full-name">Complementary Metal-Oxide-Semiconductor</div>
+        </div>
+        <div class="desc">主流影像 sensor 技術,每 pixel 都有自己的放大器。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">CFA</div>
+          <div class="full-name">Color Filter Array</div>
+        </div>
+        <div class="desc">每 pixel 上的彩色濾鏡,最常見 Bayer pattern(RGGB)。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">FSI / BSI</div>
+          <div class="full-name">Front-side / Back-side Illuminated</div>
+        </div>
+        <div class="desc">sensor 結構演化:BSI 把感光區翻到上面,光不用穿過金屬層。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">QE</div>
+          <div class="full-name">Quantum Efficiency</div>
+        </div>
+        <div class="desc">光子轉電子的機率,好 sensor 約 80%。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">DCG</div>
+          <div class="full-name">Dual Conversion Gain</div>
+        </div>
+        <div class="desc">同次曝光、雙 gain 讀出,提升動態範圍且無 ghosting。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">QPD</div>
+          <div class="full-name">Quad Phase Detection</div>
+        </div>
+        <div class="desc">每 pixel 內 2×2 photodiode,可水平/垂直雙向相位對焦。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">CRA</div>
+          <div class="full-name">Chief Ray Angle</div>
+        </div>
+        <div class="desc">光線入射 sensor 的主光線角度,影響 lens shading。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">VCM</div>
+          <div class="full-name">Voice Coil Motor</div>
+        </div>
+        <div class="desc">推動鏡片組或 sensor 做 AF / OIS 的電磁線圈馬達。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">OTP</div>
+          <div class="full-name">One-Time Programmable</div>
+        </div>
+        <div class="desc">sensor 內小型非揮發儲存,存出廠校正資料(defect map、LSC table)。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">MIPI &amp; Interface</div>
+    <h2>介面與資料流</h2>
+    <div class="glossary">
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">MIPI</div>
+          <div class="full-name">Mobile Industry Processor Interface</div>
+        </div>
+        <div class="desc">手機晶片介面標準的聯盟。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">CSI-2</div>
+          <div class="full-name">Camera Serial Interface v2</div>
+        </div>
+        <div class="desc">MIPI 規範的 camera 資料介面,packet-based。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">D-PHY</div>
+          <div class="full-name">Differential PHY</div>
+        </div>
+        <div class="desc">傳統 MIPI 實體層,差分對 + clock lane。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">C-PHY</div>
+          <div class="full-name">3-wire PHY</div>
+        </div>
+        <div class="desc">較新的 MIPI 實體層,3 條為一組 trio,clock 內嵌。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">VC</div>
+          <div class="full-name">Virtual Channel</div>
+        </div>
+        <div class="desc">CSI-2 packet header 內的 2-bit 標識,讓一條 MIPI 跑多個 stream。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">LP / HS</div>
+          <div class="full-name">Low-Power / High-Speed</div>
+        </div>
+        <div class="desc">D-PHY 兩種訊號模式,idle 時 LP 省電、傳資料時 HS 高速。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">SCCB</div>
+          <div class="full-name">Serial Camera Control Bus</div>
+        </div>
+        <div class="desc">I²C 的變體,sensor 設定常用。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">I3C</div>
+          <div class="full-name">Improved Inter-Integrated Circuit</div>
+        </div>
+        <div class="desc">新一代 I²C,12MHz 速度,降低 3A latency。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">DT</div>
+          <div class="full-name">Data Type</div>
+        </div>
+        <div class="desc">CSI-2 packet header 內的 6-bit 標識,指明資料格式(RAW10、YUV420 等)。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">ISP Pipeline</div>
+    <h2>ISP 各區塊</h2>
+    <div class="glossary">
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">ISP</div>
+          <div class="full-name">Image Signal Processor</div>
+        </div>
+        <div class="desc">影像訊號處理器,SoC 內專用硬體區塊。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">BLC</div>
+          <div class="full-name">Black Level Correction</div>
+        </div>
+        <div class="desc">把 sensor 暗電流 offset 減掉,讓黑真的是 0。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">LSC</div>
+          <div class="full-name">Lens Shading Correction</div>
+        </div>
+        <div class="desc">補正鏡頭造成的中亮邊暗、邊緣色偏。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">DPC</div>
+          <div class="full-name">Defect Pixel Correction</div>
+        </div>
+        <div class="desc">偵測並修補 sensor 上的死點與壞點。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">Demosaic</div>
+          <div class="full-name">CFA Interpolation</div>
+        </div>
+        <div class="desc">把 Bayer 單通道還原成 RGB 三通道。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">WB</div>
+          <div class="full-name">White Balance</div>
+        </div>
+        <div class="desc">根據光源色溫調 R/B gain,讓白色看起來是白色。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">CCM</div>
+          <div class="full-name">Color Correction Matrix</div>
+        </div>
+        <div class="desc">3×3 矩陣,把 sensor 色域映射到 sRGB / P3。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">NR</div>
+          <div class="full-name">Noise Reduction</div>
+        </div>
+        <div class="desc">去雜訊,有空域(SNR)與時域(TNR)兩派。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">TNR / MFNR</div>
+          <div class="full-name">Temporal / Multi-Frame Noise Reduction</div>
+        </div>
+        <div class="desc">跨幀對齊後平均,SNR 提升 √N 倍。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">LTM</div>
+          <div class="full-name">Local Tone Mapping</div>
+        </div>
+        <div class="desc">區域性壓動態範圍,手機 HDR 風格的主角。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">GTM</div>
+          <div class="full-name">Global Tone Mapping</div>
+        </div>
+        <div class="desc">整張一條曲線,簡單但對高對比場景不夠。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">NLM</div>
+          <div class="full-name">Non-Local Means</div>
+        </div>
+        <div class="desc">在全圖找相似 patch 一起平均的進階去噪。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">BM3D</div>
+          <div class="full-name">Block-Matching 3D Filter</div>
+        </div>
+        <div class="desc">學術級去噪演算法,精度高但運算量大。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">3A &amp; AF</div>
+    <h2>自動曝光、對焦、白平衡</h2>
+    <div class="glossary">
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">AE</div>
+          <div class="full-name">Auto Exposure</div>
+        </div>
+        <div class="desc">自動曝光,目標讓畫面平均亮度落在 18% 灰附近。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">AF</div>
+          <div class="full-name">Auto Focus</div>
+        </div>
+        <div class="desc">自動對焦,目標讓主體最銳利。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">AWB</div>
+          <div class="full-name">Auto White Balance</div>
+        </div>
+        <div class="desc">自動白平衡,估計光源色溫並反向補正。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">CDAF</div>
+          <div class="full-name">Contrast-Detection AF</div>
+        </div>
+        <div class="desc">掃描 VCM 找對比最大位置,慢但精度高。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">PDAF</div>
+          <div class="full-name">Phase-Detection AF</div>
+        </div>
+        <div class="desc">用 sensor 上的半遮罩 pixel 量相位差,快。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">2PD / Dual-Pixel AF</div>
+          <div class="full-name">Dual-Photodiode AF</div>
+        </div>
+        <div class="desc">每 pixel 內 2 個 photodiode,全 sensor PDAF。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">ToF</div>
+          <div class="full-name">Time of Flight</div>
+        </div>
+        <div class="desc">發雷射量反射時間直接算距離。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Multi-Frame &amp; HDR</div>
+    <h2>多幀融合與動態範圍</h2>
+    <div class="glossary">
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">HDR</div>
+          <div class="full-name">High Dynamic Range</div>
+        </div>
+        <div class="desc">高動態範圍,兼顧亮暗細節。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">SDR</div>
+          <div class="full-name">Standard Dynamic Range</div>
+        </div>
+        <div class="desc">傳統 8-bit / 100 nits 動態範圍。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">HDR10 / HLG / PQ</div>
+          <div class="full-name">HDR 編碼標準</div>
+        </div>
+        <div class="desc">HDR10 是 10-bit、HLG 是廣電用、PQ 是 Dolby Vision 基礎。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">ZSL</div>
+          <div class="full-name">Zero Shutter Lag</div>
+        </div>
+        <div class="desc">用 ring buffer 讓快門延遲為零。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">Bracketing</div>
+          <div class="full-name">Exposure Bracketing</div>
+        </div>
+        <div class="desc">拍多張不同曝光,常用於傳統 HDR。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">Staggered HDR</div>
+          <div class="full-name">Staggered Exposure HDR</div>
+        </div>
+        <div class="desc">sensor 端交錯輸出多曝光,合成更即時。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">Ghost Removal</div>
+          <div class="full-name">Motion Ghost Removal</div>
+        </div>
+        <div class="desc">HDR / MFNR 合成時,把運動區域改用單張避免重影。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Video &amp; Stabilization</div>
+    <h2>影片與防抖</h2>
+    <div class="glossary">
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">OIS</div>
+          <div class="full-name">Optical Image Stabilization</div>
+        </div>
+        <div class="desc">光學防抖,VCM 即時推動鏡片或 sensor。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">EIS</div>
+          <div class="full-name">Electronic Image Stabilization</div>
+        </div>
+        <div class="desc">電子防抖,用大畫面 crop 補抖動,有 crop loss。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">IMU</div>
+          <div class="full-name">Inertial Measurement Unit</div>
+        </div>
+        <div class="desc">三軸或六軸慣性感測器,提供 gyro 資料給 OIS / EIS。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">Rolling Shutter</div>
+          <div class="full-name">逐行曝光</div>
+        </div>
+        <div class="desc">CMOS sensor 一行一行讀,造成 skew、jello、flash banding。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">Global Shutter</div>
+          <div class="full-name">整張同時曝光</div>
+        </div>
+        <div class="desc">無 skew,但 pixel 大、貴,手機罕見。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">Optical Flow</div>
+          <div class="full-name">光流</div>
+        </div>
+        <div class="desc">估算每 pixel 在連續幀間的位移向量。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Encoder</div>
+    <h2>影片編碼</h2>
+    <div class="glossary">
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">H.264 / AVC</div>
+          <div class="full-name">Advanced Video Coding</div>
+        </div>
+        <div class="desc">2003 年標準,目前最廣相容性。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">H.265 / HEVC</div>
+          <div class="full-name">High Efficiency Video Coding</div>
+        </div>
+        <div class="desc">壓縮比約 H.264 兩倍,手機錄影主流。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">AV1</div>
+          <div class="full-name">AOMedia Video 1</div>
+        </div>
+        <div class="desc">免授權的新一代 codec,YouTube / Netflix 主推。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">I / P / B frame</div>
+          <div class="full-name">Intra / Predicted / Bi-directional</div>
+        </div>
+        <div class="desc">關鍵幀 / 前向參考 / 雙向參考,壓縮比遞增,延遲也遞增。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">GOP</div>
+          <div class="full-name">Group of Pictures</div>
+        </div>
+        <div class="desc">兩個 I frame 之間的所有 frame 集合,通常 1~2 秒。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">CBR / VBR / CRF</div>
+          <div class="full-name">Rate Control Modes</div>
+        </div>
+        <div class="desc">固定 bitrate / 可變 bitrate / 固定畫質。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">ME</div>
+          <div class="full-name">Motion Estimation</div>
+        </div>
+        <div class="desc">encoder 找參考幀位移,占整體運算 50% 以上。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">AI &amp; NPU</div>
+    <h2>AI 與運算單元</h2>
+    <div class="glossary">
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">NPU</div>
+          <div class="full-name">Neural Processing Unit</div>
+        </div>
+        <div class="desc">專用 AI 加速器,主要做矩陣乘法。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">CNN</div>
+          <div class="full-name">Convolutional Neural Network</div>
+        </div>
+        <div class="desc">卷積神經網路,影像 AI 的主流架構。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">Semantic Segmentation</div>
+          <div class="full-name">語意分割</div>
+        </div>
+        <div class="desc">每 pixel 都被分類,輸出 segmentation mask。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">SR / Super-Resolution</div>
+          <div class="full-name">超解析度</div>
+        </div>
+        <div class="desc">用 CNN 把低解析放大成高解析,推測細節。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">Multi-frame SR</div>
+          <div class="full-name">多幀超解析</div>
+        </div>
+        <div class="desc">利用手抖 sub-pixel 位移,真實提升資訊量。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Performance Metrics</div>
+    <h2>系統度量指標</h2>
+    <div class="glossary">
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">SNR</div>
+          <div class="full-name">Signal-to-Noise Ratio</div>
+        </div>
+        <div class="desc">訊號/雜訊比,單位 dB,&gt; 30dB 可接受。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">MTF</div>
+          <div class="full-name">Modulation Transfer Function</div>
+        </div>
+        <div class="desc">解析力的量化指標,常用 MTF50。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">DR</div>
+          <div class="full-name">Dynamic Range</div>
+        </div>
+        <div class="desc">最亮/最暗比值,單位 dB 或 EV stops。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">M2P</div>
+          <div class="full-name">Motion-to-Photon Latency</div>
+        </div>
+        <div class="desc">實體動 → 螢幕更新,AR / VR 關鍵指標。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">Shutter Lag</div>
+          <div class="full-name">按下到開始曝光</div>
+        </div>
+        <div class="desc">ZSL 讓這個近乎為零。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">Shot-to-Shot</div>
+          <div class="full-name">連拍間隔</div>
+        </div>
+        <div class="desc">兩張之間的延遲,影響連拍體感。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Platform &amp; Stack</div>
+    <h2>平台與軟體堆疊</h2>
+    <div class="glossary">
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">HAL3</div>
+          <div class="full-name">Hardware Abstraction Layer v3</div>
+        </div>
+        <div class="desc">Android Camera 的 vendor HAL 介面標準。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">CamX + Chi-CDK</div>
+          <div class="full-name">Qualcomm Camera Framework</div>
+        </div>
+        <div class="desc">Qualcomm 平台上的 HAL3 實作,智慧眼鏡開發必碰。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">MTKCAM</div>
+          <div class="full-name">MediaTek Camera HAL</div>
+        </div>
+        <div class="desc">聯發科平台的 camera HAL 實作。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">DMA-buf</div>
+          <div class="full-name">DMA Buffer Sharing</div>
+        </div>
+        <div class="desc">Linux 機制,讓 sensor / ISP / encoder 之間 zero-copy 傳 buffer。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">v4l2</div>
+          <div class="full-name">Video for Linux 2</div>
+        </div>
+        <div class="desc">Linux 上 video 設備的 API。</div>
+      </div>
+      <div class="gloss-item">
+        <div>
+          <div class="abbr">AR1 Gen 1</div>
+          <div class="full-name">Qualcomm Smart Glasses SoC</div>
+        </div>
+        <div class="desc">2023 年發表的智慧眼鏡專用 SoC。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="chapter-nav">
+  <div class="container">
+    <div class="chapter-nav-grid">
+      <a href="ch11-performance-glasses.html" class="nav-card prev">
+        <div class="label">Prev</div>
+        <h4>Performance &amp; 智慧眼鏡取捨</h4>
+        <p>整本書的收束章。</p>
+      </a>
+      <a href="index.html" class="nav-card next">
+        <div class="label">Top</div>
+        <h4>回到總目錄</h4>
+        <p>11 章與詞彙表的全景圖。</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Camera Atlas · Complete Edition
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,8 @@
+# Personal / non-public notes (NEVER deploy)
+HANDOFF.md
+
+# OS / editor cruft
+.DS_Store
+*.swp
+.idea/
+.vscode/

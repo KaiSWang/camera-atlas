@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>光路與感光元件 — Camera Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Noto+Serif+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>(function(){try{var s=parseInt(localStorage.getItem('webatlas_text_size'),10);var a=[15,16,17,18,19,20,22,24];if(!isNaN(s)&&s>=0&&s<a.length){document.documentElement.style.setProperty('--reader-fz',a[s]+'px');}}catch(e){}})();</script>
+<link rel="stylesheet" href="style.css">
+<script defer src="reader.js"></script>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="container">
+    <div class="top-bar-inner">
+      <a href="index.html" class="logo">⬢ Camera Atlas</a>
+      <nav>
+        <a href="index.html">總目錄</a>
+        <a href="ch01-optics-sensor.html" class="active">光路與感光元件</a>
+        <a href="glossary.html">詞彙表</a>
+      </nav>
+      <span>Vol.01</span>
+      <div class="font-control" role="group" aria-label="字體大小">
+        <button type="button" class="fz-btn" data-action="dec" aria-label="縮小字體">A<span class="fz-sym">−</span></button>
+        <button type="button" class="fz-btn" data-action="inc" aria-label="放大字體">A<span class="fz-sym">+</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="kicker">
+      <span class="dot"></span>
+      Vol. 01 · Optics &amp; Sensor
+    </div>
+    <h1>光路與感光元件<br>從 <em>一顆光子如何變成 bit</em> 開始</h1>
+    <p class="hero-sub">
+      Camera pipeline 的起點不是 ISP,也不是 sensor 晶片,而是<strong>一顆光子打進鏡頭</strong>那一刻。
+      你要懂為什麼夜景照需要 multi-frame、為什麼 rolling shutter 拍轉動的螺旋槳會變香蕉、
+      為什麼智慧眼鏡不能塞下 1 吋大底——答案都在這一章。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 01 · 光路</div>
+    <h2>光從鏡頭到 photodiode <em>會經過多少道關卡</em></h2>
+    <p class="lead">
+      一個現代手機 camera 模組,從外到內大致是:<strong>鏡頭組(多片塑膠/玻璃鏡片)→ IR cut filter
+      → micro-lens 陣列 → color filter array → photodiode → readout circuit</strong>。
+      光子在這條路上一直在「掉」——每一層都會吸收或反射掉一部分。
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">01</div>
+        <div class="step-content">
+          <h3>鏡頭組(Lens stack)</h3>
+          <div class="step-sub">塑膠鏡片 6P / 7P / 玻塑混合</div>
+          <p>
+            手機鏡頭通常 6 到 8 片(6P 表示 6 plastic),負責<strong>聚光、校正像差、調整焦距</strong>。
+            光圈 <code>f/1.6</code> 大概代表「鏡頭口徑 = 焦距 / 1.6」,光圈愈大進光量愈多,但邊緣的像差(aberration)
+            也愈難壓。一個 28mm 等效焦距、f/1.8 的鏡頭,通光面積大約是 f/2.8 的 <strong>2.4 倍</strong>。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">02</div>
+        <div class="step-content">
+          <h3>IR cut filter</h3>
+          <p>
+            CMOS sensor 對紅外線非常敏感,但人眼看不見紅外線。為了讓拍出來的顏色「像人眼看到的」,
+            必須在 sensor 前放一片 <strong>650nm 左右開始截止的 IR filter</strong>。
+            這也是為什麼一般 camera 看不到電視遙控器的紅外線 LED——除非你把這片濾鏡拿掉(改造夜視相機)。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">03</div>
+        <div class="step-content">
+          <h3>Micro-lens array</h3>
+          <p>
+            每一顆 pixel 上面都有一顆<strong>微透鏡</strong>,把斜射進來的光「導正」到 photodiode 中央。
+            這對小 pixel 特別重要——pixel 愈小,周邊光線愈容易打在金屬線路上而不是感光區。
+            <code>CRA(Chief Ray Angle)</code>不匹配時就會出現嚴重 lens shading,這也是後面 LSC 校正
+            要處理的事。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">04</div>
+        <div class="step-content">
+          <h3>Color filter array(CFA)</h3>
+          <div class="step-sub">Bayer pattern 的歷史意外</div>
+          <p>
+            每一顆 pixel 只會被一種顏色的濾鏡蓋住(R / G / B)。最常見的排列是 <strong>Bayer pattern</strong>
+            (RGGB),綠色佔一半,因為人眼對綠色最敏感。所以一張 12MP 的 raw 圖,其實只有<strong>3MP 紅、
+            6MP 綠、3MP 藍</strong>——剩下的顏色資訊全靠後面的 demosaic 演算法「猜」出來。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">05</div>
+        <div class="step-content">
+          <h3>Photodiode &amp; readout</h3>
+          <p>
+            光子打進矽基板後,以「機率」激發出電子——這個機率叫 <strong>QE(Quantum Efficiency,量子效率)</strong>,
+            好一點的 BSI sensor 大概 80%。電子被累積在 well 裡,曝光結束後透過 <code>floating diffusion</code>
+            轉成電壓,再經過 column ADC 變成數位值。整個過程就是「光 → 電子 → 電壓 → bit」。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">關鍵概念 · 為什麼這些細節對系統工程師重要</div>
+      <ul>
+        <li><strong>QE 決定 SNR 下限</strong>——QE 愈低,同樣光強下產生的電子愈少,雜訊相對佔比愈高</li>
+        <li><strong>Pixel size 與感光能力</strong>——pixel 面積愈大,單位時間吸收的光子愈多,動態範圍與 SNR 都更好</li>
+        <li><strong>Lens MTF 是 pipeline 的上限</strong>——再好的演算法也救不回鏡頭沒解析出來的細節</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 02 · CMOS Sensor 結構</div>
+    <h2>FSI、BSI、Stacked <em>三代演化背後的物理直覺</em></h2>
+    <p class="lead">
+      CMOS sensor 從 2000 年代演化到現在,經歷了三個世代——你可以把它想成是<strong>「光要走多遠才能到達感光區」</strong>
+      的優化過程。每一代都是為了在 pixel 變小、解析度變高的同時,保住感光能力。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ FSI、BSI、Stacked 三代結構比較</div>
+      <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg">
+        <!-- FSI -->
+        <text x="130" y="30" fill="#2a2520" font-family="Source Serif 4" font-size="14" font-weight="600" text-anchor="middle">FSI(Front-side)</text>
+        <rect x="50" y="50" width="160" height="20" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="130" y="64" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">Micro-lens + CFA</text>
+        <rect x="50" y="70" width="160" height="50" fill="#faf7f2" stroke="#d9cfbf"/>
+        <text x="130" y="100" fill="#8b3a1e" font-family="Source Serif 4" font-size="11" text-anchor="middle" font-style="italic">Metal wiring</text>
+        <rect x="50" y="120" width="160" height="40" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="130" y="145" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="middle">Photodiode(Si)</text>
+        <path d="M130 35 L130 50" stroke="#b8860b" stroke-width="2" stroke-dasharray="3,2"/>
+        <text x="130" y="200" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">光要穿過金屬線路</text>
+        <text x="130" y="218" fill="#8b3a1e" font-family="Source Serif 4" font-size="11" text-anchor="middle" font-style="italic">QE 較低</text>
+
+        <!-- BSI -->
+        <text x="400" y="30" fill="#2a2520" font-family="Source Serif 4" font-size="14" font-weight="600" text-anchor="middle">BSI(Back-side)</text>
+        <rect x="320" y="50" width="160" height="20" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="400" y="64" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">Micro-lens + CFA</text>
+        <rect x="320" y="70" width="160" height="40" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="400" y="95" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="middle">Photodiode(Si)</text>
+        <rect x="320" y="110" width="160" height="50" fill="#faf7f2" stroke="#d9cfbf"/>
+        <text x="400" y="140" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">Metal wiring</text>
+        <path d="M400 35 L400 50" stroke="#2d6a3e" stroke-width="2" stroke-dasharray="3,2"/>
+        <text x="400" y="200" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">光直接到 photodiode</text>
+        <text x="400" y="218" fill="#2d6a3e" font-family="Source Serif 4" font-size="11" text-anchor="middle" font-style="italic">QE 提升 30-50%</text>
+
+        <!-- Stacked -->
+        <text x="670" y="30" fill="#2a2520" font-family="Source Serif 4" font-size="14" font-weight="600" text-anchor="middle">Stacked</text>
+        <rect x="590" y="50" width="160" height="20" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="670" y="64" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">Micro-lens + CFA</text>
+        <rect x="590" y="70" width="160" height="35" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="670" y="92" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="middle">Photodiode layer</text>
+        <line x1="590" y1="105" x2="750" y2="105" stroke="#8b3a1e" stroke-width="1.5" stroke-dasharray="2,2"/>
+        <rect x="590" y="105" width="160" height="35" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="670" y="127" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="middle">Logic + DRAM layer</text>
+        <rect x="590" y="140" width="160" height="20" fill="#faf7f2" stroke="#d9cfbf"/>
+        <text x="670" y="154" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">ISP / readout</text>
+        <path d="M670 35 L670 50" stroke="#2c5d8f" stroke-width="2" stroke-dasharray="3,2"/>
+        <text x="670" y="200" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">運算層在 sensor 底下</text>
+        <text x="670" y="218" fill="#2c5d8f" font-family="Source Serif 4" font-size="11" text-anchor="middle" font-style="italic">高速 readout、on-chip ISP</text>
+
+        <text x="400" y="260" fill="#948877" font-family="Source Serif 4" font-size="12" font-style="italic" text-anchor="middle">光從上方入射 ↓</text>
+      </svg>
+      <p class="diagram-caption">三代 CMOS sensor 結構演化:FSI(光要穿過金屬層)→ BSI(翻過來,光直達感光區)→ Stacked(把邏輯層疊在下面)。</p>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">Stacked sensor 為什麼是現代旗艦的標配</div>
+      <ul>
+        <li><strong>DRAM-stacked</strong>(如 Sony IMX989)讓 sensor 自己有暫存,可以做超高速讀取,例如 120fps 連拍或 1/16000s 電子快門</li>
+        <li><strong>Logic layer</strong> 直接在 sensor 下做 HDR、binning、甚至小型 AI 偵測,降低主 ISP 的工作量</li>
+        <li>Sony 在 2022 年發表的 <code>2-layer transistor pixel</code> 進一步把電晶體挪到第二層,放大感光區</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 03 · Shutter 機制</div>
+    <h2>Rolling vs Global Shutter <em>為什麼螺旋槳會變香蕉</em></h2>
+    <p class="lead">
+      手機 CMOS sensor 幾乎全部都是 <strong>rolling shutter</strong>——一行一行讀出來,而不是「整張一起讀」。
+      這個物理限制造成一個有趣現象:拍快速移動的物體時,影像會「歪掉」。理解這件事對 video pipeline、
+      OIS/EIS、HDR 都有實際影響。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ Rolling shutter 的時間錯位</div>
+      <svg viewBox="0 0 800 240" xmlns="http://www.w3.org/2000/svg">
+        <!-- 時間軸 -->
+        <line x1="60" y1="200" x2="740" y2="200" stroke="#5a4f44" stroke-width="1.5" marker-end="url(#arrow-time)"/>
+        <text x="400" y="225" fill="#5a4f44" font-family="Source Serif 4" font-size="12" text-anchor="middle">時間 t →</text>
+
+        <!-- Row exposure 帶狀 -->
+        <text x="40" y="60" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="end">Row 1</text>
+        <rect x="60" y="50" width="120" height="14" fill="#b8860b" opacity="0.5"/>
+        <rect x="180" y="50" width="20" height="14" fill="#8b3a1e" opacity="0.7"/>
+
+        <text x="40" y="85" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="end">Row 2</text>
+        <rect x="80" y="75" width="120" height="14" fill="#b8860b" opacity="0.5"/>
+        <rect x="200" y="75" width="20" height="14" fill="#8b3a1e" opacity="0.7"/>
+
+        <text x="40" y="110" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="end">Row 3</text>
+        <rect x="100" y="100" width="120" height="14" fill="#b8860b" opacity="0.5"/>
+        <rect x="220" y="100" width="20" height="14" fill="#8b3a1e" opacity="0.7"/>
+
+        <text x="40" y="135" fill="#948877" font-family="Source Serif 4" font-size="11" text-anchor="end">⋮</text>
+
+        <text x="40" y="165" fill="#2a2520" font-family="Source Serif 4" font-size="11" text-anchor="end">Row N</text>
+        <rect x="200" y="155" width="120" height="14" fill="#b8860b" opacity="0.5"/>
+        <rect x="320" y="155" width="20" height="14" fill="#8b3a1e" opacity="0.7"/>
+
+        <!-- 標示 -->
+        <rect x="500" y="50" width="14" height="14" fill="#b8860b" opacity="0.5"/>
+        <text x="520" y="62" fill="#2a2520" font-family="Source Serif 4" font-size="12">Exposure(曝光中)</text>
+
+        <rect x="500" y="75" width="14" height="14" fill="#8b3a1e" opacity="0.7"/>
+        <text x="520" y="87" fill="#2a2520" font-family="Source Serif 4" font-size="12">Readout(讀出)</text>
+
+        <text x="500" y="125" fill="#8b3a1e" font-family="Source Serif 4" font-size="12" font-style="italic">每一行的曝光起點都晚一點點</text>
+        <text x="500" y="143" fill="#5a4f44" font-family="Source Serif 4" font-size="11">所以拍快速移動物體會有 skew</text>
+
+        <defs>
+          <marker id="arrow-time" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#5a4f44"/>
+          </marker>
+        </defs>
+      </svg>
+      <p class="diagram-caption">Rolling shutter 是「一行一行讀」,每行曝光起點都錯開,稱為 <code>line time</code>。一張 4000 行的 sensor,如果 line time 10μs,整張讀完就是 40ms。</p>
+    </div>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>類型</th>
+          <th>機制</th>
+          <th>優點</th>
+          <th>缺點</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Rolling shutter</strong></td>
+          <td>一行一行曝光與讀出</td>
+          <td>電路簡單、pixel 小、便宜</td>
+          <td>有 skew、jello、flash banding</td>
+        </tr>
+        <tr>
+          <td><strong>Global shutter</strong></td>
+          <td>整張同時曝光,額外儲存格</td>
+          <td>無 skew、適合機器視覺</td>
+          <td>pixel 大、貴、消費級少見</td>
+        </tr>
+        <tr>
+          <td><strong>Mechanical shutter</strong></td>
+          <td>實體簾幕</td>
+          <td>無電子滾動</td>
+          <td>體積大,手機不適用</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      Rolling shutter 衍生的問題包括:
+      <strong>jello effect</strong>(影片晃動時畫面像果凍)、
+      <strong>flash banding</strong>(LED 燈閃爍時產生橫條紋)、
+      <strong>HDR 對齊困難</strong>(不同曝光行還沒讀完,場景就動了)。
+      所以現代手機 sensor 拼命壓低 <code>readout time</code>,旗艦級已經可以做到 <strong>5~8ms 整張讀完</strong>。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 04 · HDR Sensor</div>
+    <h2>Staggered、DCG、QPD <em>sensor 級的 HDR 三條路</em></h2>
+    <p class="lead">
+      傳統 HDR 是 ISP 把多張不同曝光的圖合成。但近年的旗艦 sensor 自己就能輸出 HDR raw,
+      把這件事「下放」到 sensor。理解這三種架構的差別,才能討論 latency、power 與畫質的取捨。
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">A</div>
+        <div class="step-content">
+          <h3>Staggered HDR(交錯曝光)</h3>
+          <div class="step-sub">Sony / Samsung / OmniVision 都有用</div>
+          <p>
+            連續輸出 2~3 張不同曝光時間的影像(short / medium / long),時間軸上「<strong>交錯讀出</strong>」,
+            然後在 sensor 或 ISP 端合成。優點是控制簡單、相容性高;缺點是<strong>不同曝光之間有時間差</strong>,
+            動態物體會有 ghosting。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">B</div>
+        <div class="step-content">
+          <h3>DCG(Dual Conversion Gain)</h3>
+          <p>
+            同一次曝光,但 floating diffusion 有兩種容量設定:<strong>高 gain</strong>(放大暗部訊號,
+            適合低光)和 <strong>低 gain</strong>(壓縮亮部,避免過曝)。讀出時兩個值都拿,
+            合起來變成高動態範圍。優點是<strong>同時曝光、沒有 ghosting</strong>;缺點是動態範圍提升有限,
+            大約多 6~10dB。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">C</div>
+        <div class="step-content">
+          <h3>QPD / Quad Bayer</h3>
+          <div class="step-sub">4-in-1 binning 同時做相位對焦</div>
+          <p>
+            把 2×2 的同色 pixel 合成一個邏輯 pixel,可以選擇:
+            (1) <strong>全部相加</strong>變大 pixel(低光模式);
+            (2) <strong>不同曝光</strong>產生 HDR;
+            (3) <strong>左右兩半相減</strong>做相位對焦(這就是 QPD 的核心)。
+            Sony IMX989 / IMX800 系列就是這個架構。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">面試重點 · 為什麼 sensor 端 HDR 在智慧眼鏡很關鍵</div>
+      <ul>
+        <li><strong>降低 ISP 工作量</strong>——sensor 直接給合成過的 HDR raw,主 SoC 不用跑 3 張合成</li>
+        <li><strong>降低 MIPI 頻寬</strong>——傳一張 HDR 比傳三張省 40% 以上</li>
+        <li><strong>降低功耗</strong>——always-on 場景下,sensor 自己處理比把資料送到 AP 省得多</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 05 · 本章重點回顧</div>
+    <h2>光路與感光元件 <em>記住這幾件事就夠了</em></h2>
+
+    <div class="scenario-card">
+      <div class="label">面試官最常問的 5 個問題</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span>Bayer pattern 為什麼綠色佔一半?<strong>因為人眼亮度感受 70% 來自綠色。</strong></span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span>BSI 比 FSI 好在哪?<strong>光不用穿過金屬線路,QE 大幅提升,小 pixel 才可行。</strong></span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span>Rolling shutter 怎麼解 jello?<strong>OIS 補光路、EIS 補後處理、加快 readout time。</strong></span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span>DCG 與 Staggered HDR 的差別?<strong>DCG 同時曝光無 ghosting,Staggered DR 更高。</strong></span>
+        </div>
+        <div class="action-line">
+          <span class="num">5</span>
+          <span class="arrow">→</span>
+          <span>QPD 怎麼同時做對焦?<strong>把同色 pixel 切左右半,讀出差異 = 相位差。</strong></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="chapter-nav">
+  <div class="container">
+    <div class="chapter-nav-grid">
+      <a href="index.html" class="nav-card prev">
+        <div class="label">Index</div>
+        <h4>回到總目錄</h4>
+        <p>11 章 + 詞彙表的全景圖。</p>
+      </a>
+      <a href="ch02-pipeline-overview.html" class="nav-card next">
+        <div class="label">Next</div>
+        <h4>Camera Pipeline 全景圖</h4>
+        <p>從 sensor 到 display 中間到底發生了什麼。</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Camera Atlas · Complete Edition
+  </div>
+</footer>
+
+</body>
+</html>

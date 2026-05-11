@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Video Pipeline 與穩定化 — Camera Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Noto+Serif+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>(function(){try{var s=parseInt(localStorage.getItem('webatlas_text_size'),10);var a=[15,16,17,18,19,20,22,24];if(!isNaN(s)&&s>=0&&s<a.length){document.documentElement.style.setProperty('--reader-fz',a[s]+'px');}}catch(e){}})();</script>
+<link rel="stylesheet" href="style.css">
+<script defer src="reader.js"></script>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="container">
+    <div class="top-bar-inner">
+      <a href="index.html" class="logo">⬢ Camera Atlas</a>
+      <nav>
+        <a href="index.html">總目錄</a>
+        <a href="ch08-video-pipeline.html" class="active">Video Pipeline</a>
+        <a href="glossary.html">詞彙表</a>
+      </nav>
+      <span>Vol.08</span>
+      <div class="font-control" role="group" aria-label="字體大小">
+        <button type="button" class="fz-btn" data-action="dec" aria-label="縮小字體">A<span class="fz-sym">−</span></button>
+        <button type="button" class="fz-btn" data-action="inc" aria-label="放大字體">A<span class="fz-sym">+</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="kicker">
+      <span class="dot"></span>
+      Vol. 08 · Video Pipeline
+    </div>
+    <h1>Video Pipeline 與穩定化<br>從拍一張 到 <em>每秒拍 60 張</em></h1>
+    <p class="hero-sub">
+      Video 不是「拍照拍很多次」——它有完全不同的<strong>限制 (constraints)</strong>:
+      固定 frame budget、不能多幀融合、必須穩定 fps、還要處理手抖。
+      這一章解釋為什麼錄影模式跟拍照模式像兩條獨立的 pipeline。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 01 · Video vs Still 的根本差異</div>
+    <h2>不能多幀融合的世界 <em>每幀都要獨立完成</em></h2>
+    <p class="lead">
+      拍照可以等 500ms 合成 8 張,Video 只有<strong>固定 frame budget</strong>:30fps 給你 33ms、
+      60fps 給你 16.7ms、120fps 只剩 8.3ms。在這個時間內<strong>必須</strong>跑完整個 pipeline,
+      不然就 drop frame。
+    </p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>面向</th>
+          <th>Still(拍照)</th>
+          <th>Video(錄影)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>時間預算</strong></td>
+          <td>200~1000ms,可彈性</td>
+          <td>固定 8~33ms</td>
+        </tr>
+        <tr>
+          <td><strong>多幀融合</strong></td>
+          <td>常用(HDR / MFNR)</td>
+          <td>只用 TNR(時域)</td>
+        </tr>
+        <tr>
+          <td><strong>頻寬壓力</strong></td>
+          <td>單次 burst</td>
+          <td>持續高負載</td>
+        </tr>
+        <tr>
+          <td><strong>畫質取捨</strong></td>
+          <td>最高優先</td>
+          <td>穩定 fps &gt; 單張畫質</td>
+        </tr>
+        <tr>
+          <td><strong>3A 行為</strong></td>
+          <td>按下快門凍結</td>
+          <td>持續調整,但要平滑</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="tech-callout">
+      <div class="ct-label">為什麼 video AE 不能太靈敏</div>
+      <ul>
+        <li>場景一點變化 AE 就大幅調整 → 影片亮度<strong>「pumping」</strong>(脈動感)</li>
+        <li>所以 video AE 用更大的 damping factor 與更慢的收斂</li>
+        <li>但場景真的劇變(從室內走出室外)時,又必須快——這是個 tuning trade-off</li>
+        <li>AWB 同理,video AWB 不能像 still 那樣積極換色溫,否則影片色彩會漂移</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 02 · OIS — 光學防抖</div>
+    <h2>移動鏡片 <em>把抖動「攔」在光路上</em></h2>
+    <p class="lead">
+      OIS(Optical Image Stabilization)用<strong>內建陀螺儀(gyro)偵測手抖,即時推動鏡片或 sensor 反向移動</strong>,
+      把抖動補掉。原理上跟船上的陀螺羅盤一樣——讓「光路」相對於外界保持穩定。
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">01</div>
+        <div class="step-content">
+          <h3>Gyro 感測</h3>
+          <p>
+            模組內或手機主板上的<strong>三軸或六軸 IMU</strong>以 1000~8000Hz 採樣手部角速度。
+            高 sample rate 是必要的——手抖頻率最高約 20Hz,但 OIS 反應的延遲必須遠小於這個。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">02</div>
+        <div class="step-content">
+          <h3>VCM / SMA 驅動</h3>
+          <p>
+            常見驅動方式:<strong>(1) 鏡片組 OIS</strong>——VCM 推動其中一片鏡片左右移動;
+            <strong>(2) Sensor-shift OIS</strong>(iPhone 12 Pro Max 起)——直接推動 sensor。
+            sensor-shift 的好處是視覺一致性更好,但對 sensor 模組重量是挑戰。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">03</div>
+        <div class="step-content">
+          <h3>限制</h3>
+          <p>
+            OIS 只能補<strong>小幅、高頻的抖動</strong>(通常 ±1 度以內)。低頻的「走路晃動」、
+            「跑步上下震」都超過 OIS 行程,得靠 EIS 補。而且 OIS 不能補旋轉(roll axis),
+            只能補 pitch & yaw——這也是為什麼影片仍會看到輕微旋轉抖動。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 03 · EIS — 電子防抖</div>
+    <h2>後處理的智慧 <em>用 crop 換穩定</em></h2>
+    <p class="lead">
+      EIS(Electronic Image Stabilization)在 post-processing 做穩定。原理:<strong>sensor 用比輸出大的解析度,
+      算出抖動軌跡後,在大畫面裡「平滑地」截取小視窗</strong>。所以 EIS 必有<strong>「crop loss」</strong>——
+      實際 FOV 比 sensor 視角窄一些。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ EIS 的 crop window 機制</div>
+      <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg">
+        <!-- Sensor frame -->
+        <rect x="100" y="50" width="600" height="200" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="400" y="40" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">Sensor 原始畫面(4K capture)</text>
+
+        <!-- Crop windows -->
+        <rect x="160" y="80" width="400" height="140" fill="none" stroke="#8b3a1e" stroke-width="2" stroke-dasharray="4,3"/>
+        <text x="360" y="100" fill="#8b3a1e" font-family="Source Serif 4" font-size="11" text-anchor="middle">Frame N · 1080p crop</text>
+
+        <rect x="180" y="90" width="400" height="140" fill="none" stroke="#2d6a3e" stroke-width="2" stroke-dasharray="4,3"/>
+        <text x="380" y="245" fill="#2d6a3e" font-family="Source Serif 4" font-size="11" text-anchor="middle">Frame N+1 · 隨抖動位移</text>
+
+        <rect x="200" y="100" width="400" height="140" fill="none" stroke="#2c5d8f" stroke-width="2" stroke-dasharray="4,3"/>
+
+        <text x="60" y="160" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="end">大畫面</text>
+        <text x="740" y="160" fill="#5a4f44" font-family="Source Serif 4" font-size="10">↑ crop loss</text>
+
+        <text x="400" y="270" fill="#5a4f44" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">每幀的 crop 位置由 gyro 與光流共同決定,讓最終輸出穩定</text>
+      </svg>
+      <p class="diagram-caption">EIS 在 sensor 大畫面內動態選擇 crop window。手抖造成的位移被 crop 平滑掉,但代價是 FOV 損失(crop margin ~10-20%)。</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">A</div>
+        <div class="step-content">
+          <h3>Motion estimation</h3>
+          <p>
+            EIS 估計每幀的位移有兩個來源:<strong>(1) Gyro 資料</strong>(精確但只有相機本體運動)、
+            <strong>(2) Optical flow</strong>(從影像本身偵測,但被場景內運動物干擾)。
+            高階 EIS(如 Google Pixel)會<strong>融合兩者</strong>,gyro 提供 ground truth,
+            optical flow 校正 gyro 飄移。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">B</div>
+        <div class="step-content">
+          <h3>Path smoothing</h3>
+          <p>
+            算出每幀位移後,不能直接「把抖動清零」——那會讓鏡頭運動看起來像機器人。
+            正確做法是<strong>對位移軌跡做低通濾波</strong>,保留低頻的「走路趨勢」、抹除高頻的「手抖」。
+            這就是為什麼 EIS 處理後的影片看起來像在「滑軌上推」,而不是完全靜止。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">C</div>
+        <div class="step-content">
+          <h3>Rolling shutter 補正</h3>
+          <p>
+            EIS 有個 bonus:可以順便補 rolling shutter skew。因為已經知道每行的時間戳和那一刻的 gyro 值,
+            就可以對<strong>每一行做獨立的位移補正</strong>,把香蕉形狀拉回直線。這是純 OIS 做不到的事。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 04 · OIS + EIS 合奏</div>
+    <h2>兩個防抖系統 <em>怎麼分工</em></h2>
+    <p class="lead">
+      現代旗艦 99% 是<strong>OIS + EIS 並用</strong>——前者攔高頻、後者修中低頻。
+      但這兩個系統的協調有微妙之處:OIS 移動後,EIS 的 gyro 資料其實看到的是「被補過」的抖動,
+      不是真實的相機運動。所以兩個系統<strong>必須交換資訊</strong>。
+    </p>
+
+    <div class="tech-callout">
+      <div class="ct-label">OIS / EIS 整合的工程細節</div>
+      <ul>
+        <li><strong>OIS controller 必須告訴 EIS「我補了多少」</strong>,EIS 才能算對真實位移</li>
+        <li><strong>OIS 的 hall sensor</strong>會即時回報鏡片位置給 EIS 演算法</li>
+        <li><strong>SoC 上有 dedicated gyro driver</strong>,把 gyro 資料同時餵給 OIS 韌體與 EIS 演算法,timestamp 必須對齊</li>
+        <li><strong>同步精度要求 100μs 以下</strong>,否則 EIS 估計會錯亂</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 05 · Frame rate 控制</div>
+    <h2>30 / 60 / 120 / 240 fps <em>每個都是不同的 system mode</em></h2>
+    <p class="lead">
+      不同 fps 不只是「拍快一點」,而是整套系統<strong>不同模式</strong>:sensor 用不同 binning、
+      MIPI 走不同 lane、ISP 跑不同 pipeline、encoder 用不同 profile。
+    </p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>fps</th>
+          <th>典型解析度</th>
+          <th>關鍵限制</th>
+          <th>常見配置</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>30 fps</strong></td>
+          <td>4K HDR</td>
+          <td>encoder bitrate</td>
+          <td>標準錄影模式</td>
+        </tr>
+        <tr>
+          <td><strong>60 fps</strong></td>
+          <td>4K 8-bit</td>
+          <td>ISP frame budget(16ms)</td>
+          <td>流暢度模式</td>
+        </tr>
+        <tr>
+          <td><strong>120 fps</strong></td>
+          <td>1080p</td>
+          <td>MIPI 頻寬 + ISP 通量</td>
+          <td>慢動作 0.25×</td>
+        </tr>
+        <tr>
+          <td><strong>240/960 fps</strong></td>
+          <td>720p</td>
+          <td>sensor 自帶 DRAM</td>
+          <td>超慢動作,通常只能拍幾秒</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      <strong>240fps 以上的「super slow-motion」</strong>通常需要 stacked sensor 自帶 DRAM——
+      sensor 先把超高速 raw 暫存在自己的記憶體裡,拍個 0.5 秒,然後慢慢吐給 SoC 處理。
+      因為任何 MIPI 規格都不可能即時傳這麼大的頻寬(960fps × 720p × 10bit ≈ 9 Gbps,
+      還要乘 binning 後的實際 raw size)。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 06 · 本章重點回顧</div>
+    <h2>Video Pipeline <em>面試核心</em></h2>
+
+    <div class="scenario-card">
+      <div class="label">系統工程師面試題</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span><strong>Video 的核心限制是 frame budget</strong>——30fps 只有 33ms,不能超時</span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span><strong>Video AE / AWB 要 damping</strong>,避免亮度/色彩 pumping</span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span><strong>OIS 補高頻、EIS 補中低頻</strong>,且兩者必須交換 gyro 資訊</span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span><strong>EIS 必有 crop loss</strong>,通常 10-20% FOV 折損</span>
+        </div>
+        <div class="action-line">
+          <span class="num">5</span>
+          <span class="arrow">→</span>
+          <span><strong>EIS 還能順便修 rolling shutter skew</strong>——逐行補位移</span>
+        </div>
+        <div class="action-line">
+          <span class="num">6</span>
+          <span class="arrow">→</span>
+          <span><strong>Super slow-motion 需要 stacked sensor 自帶 DRAM</strong>,因為 MIPI 餵不及</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="chapter-nav">
+  <div class="container">
+    <div class="chapter-nav-grid">
+      <a href="ch07-multiframe-hdr.html" class="nav-card prev">
+        <div class="label">Prev</div>
+        <h4>多幀融合 &amp; HDR</h4>
+        <p>HDR、MFNR、Night Mode。</p>
+      </a>
+      <a href="ch09-encoder.html" class="nav-card next">
+        <div class="label">Next</div>
+        <h4>Encoder</h4>
+        <p>H.264 / HEVC / AV1。</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Camera Atlas · Complete Edition
+  </div>
+</footer>
+
+</body>
+</html>

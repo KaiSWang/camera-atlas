@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>前端校正 — Camera Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Noto+Serif+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>(function(){try{var s=parseInt(localStorage.getItem('webatlas_text_size'),10);var a=[15,16,17,18,19,20,22,24];if(!isNaN(s)&&s>=0&&s<a.length){document.documentElement.style.setProperty('--reader-fz',a[s]+'px');}}catch(e){}})();</script>
+<link rel="stylesheet" href="style.css">
+<script defer src="reader.js"></script>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="container">
+    <div class="top-bar-inner">
+      <a href="index.html" class="logo">⬢ Camera Atlas</a>
+      <nav>
+        <a href="index.html">總目錄</a>
+        <a href="ch04-isp-frontend.html" class="active">前端校正</a>
+        <a href="glossary.html">詞彙表</a>
+      </nav>
+      <span>Vol.04</span>
+      <div class="font-control" role="group" aria-label="字體大小">
+        <button type="button" class="fz-btn" data-action="dec" aria-label="縮小字體">A<span class="fz-sym">−</span></button>
+        <button type="button" class="fz-btn" data-action="inc" aria-label="放大字體">A<span class="fz-sym">+</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="kicker">
+      <span class="dot"></span>
+      Vol. 04 · ISP Frontend
+    </div>
+    <h1>前端校正<br>把 raw 變回 <em>可信任的訊號</em></h1>
+    <p class="hero-sub">
+      Sensor 給出來的 raw,並不是「光的真實樣貌」——它<strong>偏暗、有死點、邊緣會變暗、色彩偏移</strong>。
+      前端 ISP 的工作就是把這些<strong>系統性偏差</strong>校正掉,讓後面的演算法能在乾淨資料上工作。
+      這一章把每個步驟拆開講,順序非常重要。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 01 · 順序的邏輯</div>
+    <h2>為什麼這幾個步驟 <em>不能換順序</em></h2>
+    <p class="lead">
+      前端 ISP 的典型順序是:<strong>BLC → LSC → Defect correction → Demosaic → WB</strong>。
+      順序不是任意的——每一步都依賴前一步的「假設」。理解這個順序背後的物理意義,
+      你才不會在面試被問到「為什麼 demosaic 不能放在 LSC 之前?」時答不出來。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ Front-end ISP 處理鏈</div>
+      <svg viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg">
+        <!-- Stages -->
+        <rect x="20" y="60" width="110" height="60" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="75" y="85" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">Raw input</text>
+        <text x="75" y="105" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">from sensor</text>
+
+        <line x1="130" y1="90" x2="160" y2="90" stroke="#8b3a1e" stroke-width="2" marker-end="url(#a)"/>
+
+        <rect x="160" y="60" width="80" height="60" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="200" y="85" fill="#2a2520" font-family="Source Serif 4" font-size="12" font-weight="600" text-anchor="middle">BLC</text>
+        <text x="200" y="102" fill="#5a4f44" font-family="Source Serif 4" font-size="9" text-anchor="middle">減黑電平</text>
+
+        <line x1="240" y1="90" x2="270" y2="90" stroke="#8b3a1e" stroke-width="2" marker-end="url(#a)"/>
+
+        <rect x="270" y="60" width="80" height="60" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="310" y="85" fill="#2a2520" font-family="Source Serif 4" font-size="12" font-weight="600" text-anchor="middle">LSC</text>
+        <text x="310" y="102" fill="#5a4f44" font-family="Source Serif 4" font-size="9" text-anchor="middle">補邊緣</text>
+
+        <line x1="350" y1="90" x2="380" y2="90" stroke="#8b3a1e" stroke-width="2" marker-end="url(#a)"/>
+
+        <rect x="380" y="60" width="80" height="60" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="420" y="85" fill="#2a2520" font-family="Source Serif 4" font-size="12" font-weight="600" text-anchor="middle">DPC</text>
+        <text x="420" y="102" fill="#5a4f44" font-family="Source Serif 4" font-size="9" text-anchor="middle">修死點</text>
+
+        <line x1="460" y1="90" x2="490" y2="90" stroke="#8b3a1e" stroke-width="2" marker-end="url(#a)"/>
+
+        <rect x="490" y="60" width="100" height="60" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="540" y="85" fill="#2a2520" font-family="Source Serif 4" font-size="12" font-weight="600" text-anchor="middle">Demosaic</text>
+        <text x="540" y="102" fill="#5a4f44" font-family="Source Serif 4" font-size="9" text-anchor="middle">Bayer → RGB</text>
+
+        <line x1="590" y1="90" x2="620" y2="90" stroke="#8b3a1e" stroke-width="2" marker-end="url(#a)"/>
+
+        <rect x="620" y="60" width="80" height="60" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="660" y="85" fill="#2a2520" font-family="Source Serif 4" font-size="12" font-weight="600" text-anchor="middle">AWB</text>
+        <text x="660" y="102" fill="#5a4f44" font-family="Source Serif 4" font-size="9" text-anchor="middle">白平衡</text>
+
+        <line x1="700" y1="90" x2="730" y2="90" stroke="#8b3a1e" stroke-width="2" marker-end="url(#a)"/>
+        <text x="765" y="93" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">→ 後端</text>
+
+        <text x="400" y="160" fill="#8b3a1e" font-family="Source Serif 4" font-size="12" font-style="italic" text-anchor="middle">每一步都依賴前一步的「乾淨假設」</text>
+
+        <defs>
+          <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#8b3a1e"/>
+          </marker>
+        </defs>
+      </svg>
+      <p class="diagram-caption">典型的前端 ISP 處理鏈。實務上各廠順序略有差異(如 WB gain 可能放在 demosaic 前),但 BLC 永遠是第一步、demosaic 一定在 WB 之前(或同時)。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 02 · BLC(Black Level Correction)</div>
+    <h2>第一步 <em>把「黑」對齊到真正的零</em></h2>
+    <p class="lead">
+      Sensor 即使在<strong>完全沒有光</strong>的情況下,讀出來也不是 0,而是一個小於 100 的<strong>暗電流值</strong>
+      (例如 64 LSB)。原因是<strong>暗電流(dark current)</strong>、<strong>readout offset</strong>、
+      <strong>ADC 內部的 reference</strong>。BLC 的工作就是把這個 offset 減掉,讓「黑」真的是 0。
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">01</div>
+        <div class="step-content">
+          <h3>為什麼要做</h3>
+          <p>
+            後面所有運算(LSC 補光、demosaic 插值、WB gain)都假設「pixel 值與光強成線性比例」。
+            如果不減黑電平,做 WB gain 時就會把這個 offset 也放大——例如黑電平 64,gain 4×,
+            結果整張圖黑色變成 256,<strong>畫面整體發灰</strong>。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">02</div>
+        <div class="step-content">
+          <h3>怎麼做</h3>
+          <p>
+            最簡單的版本:<code>output = max(0, input - black_level)</code>。
+            進階版本會分通道(R/Gr/Gb/B 各自有不同 offset)、分溫度(熱的時候暗電流變大)、
+            甚至分區域(sensor 中心 vs 邊緣)。Sensor 通常會在影像邊緣留一圈
+            <strong>「optical black」遮光區</strong>讓 ISP 即時量測 black level。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">面試小陷阱</div>
+      <ul>
+        <li><strong>為什麼分通道做?</strong>因為 R、Gr、Gb、B 的 photodiode 在矽基板上位置不同,洩漏電流略有差異</li>
+        <li><strong>為什麼有 Gr 和 Gb 兩個綠?</strong>它們在 Bayer 上的相鄰關係不同,實際 offset 會差一點點</li>
+        <li><strong>動態 BLC 怎麼來?</strong>就靠 sensor 邊緣的 optical black row/column,即時量測</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 03 · LSC(Lens Shading Correction)</div>
+    <h2>為什麼照片<em>中間亮、邊緣暗、四角還偏色</em></h2>
+    <p class="lead">
+      理想鏡頭應該把光均勻分布到 sensor。實際鏡頭:中央通光面積大、邊緣有 cos⁴ 衰減
+      (光學定律,無法避免)、加上 CRA 不匹配造成的<strong>色偏</strong>。LSC 用一張
+      <strong>校正圖(shading map)</strong>反向補回去。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ Lens shading 的兩個成因</div>
+      <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg">
+        <!-- Luma shading -->
+        <text x="200" y="30" fill="#2a2520" font-family="Source Serif 4" font-size="14" font-weight="600" text-anchor="middle">亮度漸暈(luma shading)</text>
+
+        <!-- Radial gradient circle -->
+        <defs>
+          <radialGradient id="lumagrad">
+            <stop offset="0%" stop-color="#faf7f2"/>
+            <stop offset="60%" stop-color="#d9cfbf"/>
+            <stop offset="100%" stop-color="#5a4f44"/>
+          </radialGradient>
+          <radialGradient id="colorgrad">
+            <stop offset="0%" stop-color="#faf7f2"/>
+            <stop offset="60%" stop-color="#b8860b"/>
+            <stop offset="100%" stop-color="#8b3a1e"/>
+          </radialGradient>
+        </defs>
+
+        <rect x="100" y="50" width="200" height="150" fill="url(#lumagrad)" stroke="#d9cfbf"/>
+        <text x="200" y="220" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">中央亮,邊緣暗</text>
+        <text x="200" y="238" fill="#8b3a1e" font-family="Source Serif 4" font-size="10" font-style="italic" text-anchor="middle">cos⁴ 衰減 + 光圈遮蔽</text>
+
+        <!-- Color shading -->
+        <text x="600" y="30" fill="#2a2520" font-family="Source Serif 4" font-size="14" font-weight="600" text-anchor="middle">色偏漸暈(color shading)</text>
+
+        <rect x="500" y="50" width="200" height="150" fill="url(#colorgrad)" stroke="#d9cfbf"/>
+        <text x="600" y="220" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">不同顏色衰減速度不同</text>
+        <text x="600" y="238" fill="#8b3a1e" font-family="Source Serif 4" font-size="10" font-style="italic" text-anchor="middle">CRA 不匹配,邊緣偏色</text>
+
+        <text x="400" y="270" fill="#5a4f44" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">LSC 用一張校正表把這兩種衰減反向補回去</text>
+      </svg>
+      <p class="diagram-caption">兩種 lens shading:整體亮度衰減(luma)與不同顏色不同衰減(color)。LSC 通常存兩張表,分別補正。</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">01</div>
+        <div class="step-content">
+          <h3>校正表怎麼來</h3>
+          <p>
+            產線上用<strong>積分球(integrating sphere)</strong>提供完全均勻的光,拍一張,
+            理論上應該全圖一樣亮。實際上拍出來就是中央亮邊緣暗——把這張當作「shading 樣板」,
+            倒推每個位置需要乘的補正 gain。一個 4000×3000 sensor 不會存全部 gain,
+            通常存 <strong>33×25 或 65×49 的稀疏 grid</strong>,中間用 bilinear interpolation。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">02</div>
+        <div class="step-content">
+          <h3>為什麼要分色溫</h3>
+          <p>
+            鏡頭塗膜對不同波長的穿透率不同,所以<strong>不同色溫下 color shading 的形狀也不同</strong>。
+            高階 ISP 會存好幾張校正表(daylight、tungsten、fluorescent...),
+            根據當前 AWB 結果<strong>插值合成</strong>當下要用的那張。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">03</div>
+        <div class="step-content">
+          <h3>邊緣放大雜訊的副作用</h3>
+          <p>
+            問題來了:LSC 在邊緣補了 2× gain,意思是<strong>邊緣的雜訊也被放大 2 倍</strong>。
+            所以暗角看起來補亮了,但雜訊變很明顯。後面的 NR 演算法要對「邊緣區域」用更強的去噪。
+            這就是 ISP 後端為什麼要拿 LSC map 當作雜訊強度的參考。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 04 · DPC(Defect Pixel Correction)</div>
+    <h2>每片 sensor 都有壞點 <em>幾顆是「正常」的</em></h2>
+    <p class="lead">
+      所有 sensor 都有「死點」——某些 pixel 永遠輸出最大值(hot)、最小值(stuck)、
+      或隨機跳動(random telegraph noise)。一片 12MP sensor 有<strong>幾十到幾百個</strong> defect 是正常的,
+      DPC 的工作就是<strong>偵測 + 修補</strong>。
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">A</div>
+        <div class="step-content">
+          <h3>Static DPC(靜態壞點表)</h3>
+          <p>
+            產線上每片 sensor 都會被測試,把<strong>位置固定的壞點</strong>記在一張表(defect map)裡,
+            存進 sensor 的 OTP(One-Time Programmable)記憶體。ISP 啟動時讀這張表,直接知道哪幾個 pixel 不能信。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">B</div>
+        <div class="step-content">
+          <h3>Dynamic DPC(即時偵測)</h3>
+          <p>
+            有些壞點是<strong>用久了才壞的</strong>(熱劣化、宇宙射線)。所以 ISP 還會即時跑一個檢測:
+            把每個 pixel 跟鄰居比較,如果<strong>差距遠超過鄰居之間的差距</strong>,就判定為壞點,當場修正。
+            這個閾值不能太低(會把細節誤判)、也不能太高(放過壞點)。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">C</div>
+        <div class="step-content">
+          <h3>修補方法</h3>
+          <p>
+            最簡單:用<strong>同色鄰居的中位數</strong>替換。例如 R 壞點,就抓附近 8 個 R pixel 取中位數。
+            進階版會考慮邊緣方向——如果鄰居顯示這裡有水平邊緣,就只用左右兩個鄰居,避免跨邊插值造成模糊。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 05 · Demosaic(去馬賽克)</div>
+    <h2>從 Bayer 到全彩 <em>三分之二的顏色靠猜</em></h2>
+    <p class="lead">
+      Bayer raw 每個 pixel 只有一個顏色。Demosaic 的工作是<strong>把缺的兩個顏色「插出來」</strong>。
+      聽起來簡單,但這是整條 ISP 裡<strong>最容易出 artifact</strong> 的環節——zipper、moiré、false color
+      都來自這裡。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ Bayer demosaic:從每像素 1 色到 3 色</div>
+      <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg">
+        <!-- Before: Bayer -->
+        <text x="200" y="30" fill="#2a2520" font-family="Source Serif 4" font-size="14" font-weight="600" text-anchor="middle">輸入:Bayer raw</text>
+
+        <g transform="translate(100,50)">
+          <!-- 4x4 Bayer pattern -->
+          <rect x="0" y="0" width="40" height="40" fill="#c84a3a"/>
+          <rect x="40" y="0" width="40" height="40" fill="#5fa050"/>
+          <rect x="80" y="0" width="40" height="40" fill="#c84a3a"/>
+          <rect x="120" y="0" width="40" height="40" fill="#5fa050"/>
+
+          <rect x="0" y="40" width="40" height="40" fill="#5fa050"/>
+          <rect x="40" y="40" width="40" height="40" fill="#3a7ab8"/>
+          <rect x="80" y="40" width="40" height="40" fill="#5fa050"/>
+          <rect x="120" y="40" width="40" height="40" fill="#3a7ab8"/>
+
+          <rect x="0" y="80" width="40" height="40" fill="#c84a3a"/>
+          <rect x="40" y="80" width="40" height="40" fill="#5fa050"/>
+          <rect x="80" y="80" width="40" height="40" fill="#c84a3a"/>
+          <rect x="120" y="80" width="40" height="40" fill="#5fa050"/>
+
+          <rect x="0" y="120" width="40" height="40" fill="#5fa050"/>
+          <rect x="40" y="120" width="40" height="40" fill="#3a7ab8"/>
+          <rect x="80" y="120" width="40" height="40" fill="#5fa050"/>
+          <rect x="120" y="120" width="40" height="40" fill="#3a7ab8"/>
+
+          <text x="20" y="25" fill="#fff" font-family="Source Serif 4" font-size="11" text-anchor="middle">R</text>
+          <text x="60" y="25" fill="#fff" font-family="Source Serif 4" font-size="11" text-anchor="middle">G</text>
+          <text x="20" y="65" fill="#fff" font-family="Source Serif 4" font-size="11" text-anchor="middle">G</text>
+          <text x="60" y="65" fill="#fff" font-family="Source Serif 4" font-size="11" text-anchor="middle">B</text>
+        </g>
+
+        <line x1="280" y1="110" x2="380" y2="110" stroke="#8b3a1e" stroke-width="2" marker-end="url(#ad)"/>
+        <text x="330" y="100" fill="#8b3a1e" font-family="Source Serif 4" font-size="11" text-anchor="middle">demosaic</text>
+
+        <!-- After: full color -->
+        <text x="540" y="30" fill="#2a2520" font-family="Source Serif 4" font-size="14" font-weight="600" text-anchor="middle">輸出:每 pixel 都有 RGB</text>
+
+        <g transform="translate(440,50)">
+          <rect x="0" y="0" width="160" height="160" fill="#b87858"/>
+          <text x="80" y="90" fill="#fff" font-family="Source Serif 4" font-size="13" text-anchor="middle">每個 pixel</text>
+          <text x="80" y="108" fill="#fff" font-family="Source Serif 4" font-size="13" text-anchor="middle">都有 R, G, B</text>
+        </g>
+
+        <text x="400" y="245" fill="#5a4f44" font-family="Source Serif 4" font-size="12" text-anchor="middle">缺失的顏色靠鄰居推算</text>
+        <text x="400" y="263" fill="#8b3a1e" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">artifact 主要來源:邊緣處跨色插值</text>
+
+        <defs>
+          <marker id="ad" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#8b3a1e"/>
+          </marker>
+        </defs>
+      </svg>
+      <p class="diagram-caption">Demosaic 把單通道 Bayer 還原成 3 通道 RGB。每個 pixel 缺的兩個顏色靠鄰居「猜」,如何猜得聰明,是各家 ISP 的核心競爭力之一。</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">01</div>
+        <div class="step-content">
+          <h3>Bilinear(最笨)</h3>
+          <p>
+            缺什麼,就拿鄰居的同色平均。實作便宜,但<strong>跨邊緣處嚴重模糊</strong>,
+            高頻區會看到「拉鏈圖案」(zipper artifact)。現代 ISP 早不用這個。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">02</div>
+        <div class="step-content">
+          <h3>Edge-directed(主流)</h3>
+          <p>
+            插值前先<strong>判斷邊緣方向</strong>——這個 pixel 是水平條紋還是垂直條紋?
+            如果是水平,就只用左右鄰居插值(不要跨邊緣)。最有名的演算法是
+            <code>Hamilton-Adams</code> 和 <code>Malvar(MS demosaic)</code>。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">03</div>
+        <div class="step-content">
+          <h3>AI demosaic(新潮流)</h3>
+          <p>
+            近 5 年的趨勢是用<strong>小型 CNN 直接學 raw → RGB 的對應</strong>。Google Pixel 的
+            <code>Night Sight</code>、Apple 的 <code>Deep Fusion</code> 都用 AI demosaic 配合 multi-frame。
+            問題是運算量大,不在 ISP 硬體區塊裡跑,而是<strong>讀回 DRAM 由 NPU 處理</strong>。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">常見 demosaic artifact</div>
+      <ul>
+        <li><strong>Zipper</strong>——邊緣有規律的紅綠交錯,bilinear 的招牌 bug</li>
+        <li><strong>False color(假色)</strong>——細條紋或格紋附近出現原圖沒有的顏色</li>
+        <li><strong>Moiré</strong>——拍布料、紗窗、遠處欄杆容易出現的條紋干涉,本質是取樣定理問題</li>
+        <li><strong>Maze</strong>——AI demosaic 訓練不足時會學出迷宮狀紋路</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 06 · WB Gain</div>
+    <h2>White Balance 的前端工作 <em>「該乘的 gain 在 demosaic 之前就乘」</em></h2>
+    <p class="lead">
+      AWB 演算法本身放在 5 章講(那是回授迴路的範疇)。前端做的事是:<strong>拿到 AWB 算好的 R/Gr/Gb/B gain
+      之後,把它「乘」到 raw 上</strong>。乘的時機選在 demosaic 之前或之後,各家 ISP 都不一樣。
+    </p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>時機</th>
+          <th>優點</th>
+          <th>缺點</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Demosaic 之前</strong></td>
+          <td>每色獨立 gain,精確度高;對 demosaic 友善</td>
+          <td>可能放大某些 channel 的雜訊</td>
+        </tr>
+        <tr>
+          <td><strong>Demosaic 之後</strong></td>
+          <td>在 RGB 上操作,實作直觀</td>
+          <td>已經混色,gain 不純粹</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      實務上 Qualcomm Spectra ISP 與 MediaTek Imagiq ISP 都放在<strong>demosaic 之前</strong>,
+      因為精確度更重要。WB gain 同時也是 sensor 飽和點的隱藏限制——
+      gain 太大會把 highlight 推爆,所以 AE 與 AWB 在系統層級必須協調。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 07 · 本章重點回顧</div>
+    <h2>前端校正 <em>面試核心觀念</em></h2>
+
+    <div class="scenario-card">
+      <div class="label">記住順序與原因</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span><strong>BLC 永遠第一</strong>——所有後續運算都假設輸入是線性的</span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span><strong>LSC 在 demosaic 之前</strong>——對單色 Bayer 補正比對 RGB 補正準</span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span><strong>LSC 會放大邊緣雜訊</strong>,後端 NR 必須拿 LSC map 做雜訊強度估計</span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span><strong>Demosaic 是 artifact 大戶</strong>——zipper / false color / moiré 都源自這裡</span>
+        </div>
+        <div class="action-line">
+          <span class="num">5</span>
+          <span class="arrow">→</span>
+          <span><strong>WB gain 在 demosaic 前後都有派系</strong>,主流選前面</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="chapter-nav">
+  <div class="container">
+    <div class="chapter-nav-grid">
+      <a href="ch03-mipi-csi2.html" class="nav-card prev">
+        <div class="label">Prev</div>
+        <h4>MIPI CSI-2 與資料流</h4>
+        <p>sensor 與 SoC 之間的高速介面。</p>
+      </a>
+      <a href="ch05-3a-algorithms.html" class="nav-card next">
+        <div class="label">Next</div>
+        <h4>3A 演算法</h4>
+        <p>AE / AF / AWB 的回授迴路。</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Camera Atlas · Complete Edition
+  </div>
+</footer>
+
+</body>
+</html>
