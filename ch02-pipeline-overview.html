@@ -72,9 +72,10 @@
 
         <!-- SoC frontend -->
         <rect x="200" y="30" width="120" height="80" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
-        <text x="260" y="55" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">CSI Receiver</text>
-        <text x="260" y="75" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">+ Front-end ISP</text>
-        <text x="260" y="92" fill="#5a4f44" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">BLC, LSC, demosaic</text>
+        <text x="260" y="52" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">CSI Receiver</text>
+        <text x="260" y="70" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="middle">+ Front-end ISP</text>
+        <text x="260" y="87" fill="#5a4f44" font-family="Source Serif 4" font-size="10" font-style="italic" text-anchor="middle">BLC, LSC, demosaic</text>
+        <text x="260" y="102" fill="#2d6a3e" font-family="Source Serif 4" font-size="10" font-style="italic" text-anchor="middle">+ 3A stats engine</text>
 
         <!-- DRAM -->
         <line x1="260" y1="110" x2="260" y2="160" stroke="#8b3a1e" stroke-width="2" marker-end="url(#arr)"/>
@@ -85,9 +86,8 @@
         <!-- Back-end ISP -->
         <line x1="320" y1="185" x2="370" y2="185" stroke="#8b3a1e" stroke-width="2" marker-end="url(#arr)"/>
         <rect x="370" y="150" width="130" height="70" rx="4" fill="#f3ede2" stroke="#d9cfbf"/>
-        <text x="435" y="173" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">Back-end ISP</text>
-        <text x="435" y="190" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">tone, NR, sharpen</text>
-        <text x="435" y="205" fill="#5a4f44" font-family="Source Serif 4" font-size="10" font-style="italic" text-anchor="middle">3A stats out</text>
+        <text x="435" y="178" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">Back-end ISP</text>
+        <text x="435" y="197" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">tone, NR, sharpen, CCM</text>
 
         <!-- NPU -->
         <line x1="435" y1="150" x2="435" y2="115" stroke="#8b3a1e" stroke-width="1.5" stroke-dasharray="3,2"/>
@@ -114,9 +114,9 @@
         <text x="435" y="277" fill="#2a2520" font-family="Source Serif 4" font-size="13" font-weight="600" text-anchor="middle">Display Pipe</text>
         <text x="435" y="293" fill="#5a4f44" font-family="Source Serif 4" font-size="10" font-style="italic" text-anchor="middle">preview path</text>
 
-        <!-- 3A loop back -->
-        <path d="M370 200 Q200 250 200 110" stroke="#2d6a3e" stroke-width="1.5" fill="none" stroke-dasharray="4,3" marker-end="url(#arr-g)"/>
-        <text x="160" y="260" fill="#2d6a3e" font-family="Source Serif 4" font-size="11" font-style="italic">3A 回授 → sensor 控制</text>
+        <!-- 3A loop back: stats engine (front-end ISP, HW) → algo (firmware/DSP) → sensor I²C -->
+        <path d="M260 110 Q170 250 140 80" stroke="#2d6a3e" stroke-width="1.5" fill="none" stroke-dasharray="4,3" marker-end="url(#arr-g)"/>
+        <text x="170" y="260" fill="#2d6a3e" font-family="Source Serif 4" font-size="11" font-style="italic">3A stats(HW) → 演算法(SW) → sensor I²C 控制</text>
 
         <text x="700" y="40" fill="#5a4f44" font-family="Source Serif 4" font-size="11" text-anchor="end">外部</text>
         <line x1="660" y1="40" x2="700" y2="40" stroke="#5a4f44" stroke-width="0.5"/>
@@ -131,7 +131,7 @@
           </marker>
         </defs>
       </svg>
-      <p class="diagram-caption">完整 camera pipeline:資料從 sensor 經 MIPI 進入 SoC,前端 ISP 先處理 raw,寫回 DRAM,後端 ISP 再做進階運算,最後分流到 encoder(存檔)與 display(預覽)。3A 統計值會回授到 sensor 改變曝光/聚焦/白平衡。</p>
+      <p class="diagram-caption">完整 camera pipeline:資料從 sensor 經 MIPI 進入 SoC,前端 ISP 先處理 raw,寫回 DRAM,後端 ISP 再做進階運算,最後分流到 encoder(存檔)與 display(預覽)。<strong>3A 統計值由前端 ISP 內的 HW stats engine 從 raw/Bayer domain 採集</strong>,DMA 給 camera firmware/DSP 跑 AE/AF/AWB 演算法,再經 I²C 寫回 sensor 與 VCM(深入見 <a href="ch05-3a-algorithms.html">Ch05</a>)。</p>
     </div>
   </div>
 </section>
@@ -183,6 +183,143 @@
         <li><strong>前端的輸出寫入 DRAM 時通常已經 demosaic + WB + 縮小</strong>,後端要的資料量降低</li>
         <li><strong>Preview 路徑可以走「短路」</strong>——前端直接縮圖出 1080p 給 display,跳過後端複雜運算</li>
         <li><strong>Capture 路徑才把 full-res 餵給後端</strong>,集中力氣處理「使用者最終會看的那張」</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">補充 · 名詞速查</div>
+    <h2>表格裡的縮寫 <em>先解一遍</em></h2>
+    <p class="lead">
+      上面表格裡冒出來的 BLC、LSC、demosaic、CCM、MFNR…這些是 raw/YUV domain 的標準術語。
+      這裡先給一句話的「decoder」,深入原理留到後面各章。<strong>順序也是 pipeline 真實的執行順序</strong>
+      ——記住順序,等於記住背後的物理邏輯:<em>先處理「跟內容無關的固定誤差」,再處理「跟內容有關的色彩/雜訊」</em>。
+    </p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>縮寫</th>
+          <th>全名</th>
+          <th>一句話解釋</th>
+          <th>深入</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>BLC</strong></td>
+          <td>Black Level Correction</td>
+          <td>sensor 沒光時讀出來也不是 0(有 dark current offset),要先減掉</td>
+          <td><a href="ch04-isp-frontend.html">Ch04</a></td>
+        </tr>
+        <tr>
+          <td><strong>DPC</strong></td>
+          <td>Defect Pixel Correction</td>
+          <td>修掉死點/熱噪點,分 static(OTP 標好)和 dynamic(運行時偵測)</td>
+          <td><a href="ch04-isp-frontend.html">Ch04</a></td>
+        </tr>
+        <tr>
+          <td><strong>LSC</strong></td>
+          <td>Lens Shading Correction</td>
+          <td>透鏡邊角進光少(cos⁴θ),乘一個 gain map 把暗角拉回來</td>
+          <td><a href="ch04-isp-frontend.html">Ch04</a></td>
+        </tr>
+        <tr>
+          <td><strong>Demosaic</strong></td>
+          <td>—</td>
+          <td>Bayer 1 通道插值成 RGB 3 通道,前端 ISP <strong>最吃算力</strong>的一步</td>
+          <td><a href="ch04-isp-frontend.html">Ch04</a></td>
+        </tr>
+        <tr>
+          <td><strong>WB / AWB</strong></td>
+          <td>(Auto) White Balance</td>
+          <td>對 R/G/B 各乘 gain,讓不同色溫光源下「白色」呈現白色</td>
+          <td><a href="ch05-3a-algorithms.html">Ch05</a></td>
+        </tr>
+        <tr>
+          <td><strong>CCM</strong></td>
+          <td>Color Correction Matrix</td>
+          <td>3×3 矩陣把 sensor 的 RGB 色域映射到 sRGB 標準色域</td>
+          <td><a href="ch06-isp-backend.html">Ch06</a></td>
+        </tr>
+        <tr>
+          <td><strong>Gamma</strong></td>
+          <td>—</td>
+          <td>display 響應曲線補償 + 把線性訊號做非線性壓縮</td>
+          <td><a href="ch06-isp-backend.html">Ch06</a></td>
+        </tr>
+        <tr>
+          <td><strong>Tone Mapping</strong></td>
+          <td>—</td>
+          <td>把 14 stops 真實世界 DR 壓到 8 stops display;LTM(local)算力大戶</td>
+          <td><a href="ch06-isp-backend.html">Ch06</a></td>
+        </tr>
+        <tr>
+          <td><strong>NR</strong></td>
+          <td>Noise Reduction</td>
+          <td>spatial(單張內)+ temporal(跨幀);後者效果好但要 frame buffer</td>
+          <td><a href="ch06-isp-backend.html">Ch06</a></td>
+        </tr>
+        <tr>
+          <td><strong>MFNR</strong></td>
+          <td>Multi-Frame Noise Reduction</td>
+          <td>對齊 N 張 raw 平均,<strong>SNR 提升 √N</strong>,夜景模式核心</td>
+          <td><a href="ch07-multiframe-hdr.html">Ch07</a></td>
+        </tr>
+        <tr>
+          <td><strong>HDR merge</strong></td>
+          <td>—</td>
+          <td>短/中/長曝合成出高 DR;動態物體易 ghost,要 motion detection</td>
+          <td><a href="ch07-multiframe-hdr.html">Ch07</a></td>
+        </tr>
+        <tr>
+          <td><strong>Binning</strong></td>
+          <td>—</td>
+          <td>sensor 端 2×2 / 4×4 pixel 合併,降解析度換 SNR + 省 readout 頻寬</td>
+          <td><a href="ch01-optics-sensor.html">Ch01</a></td>
+        </tr>
+        <tr>
+          <td><strong>VCM</strong></td>
+          <td>Voice Coil Motor</td>
+          <td>對焦馬達,AF 控制的就是它(移動 lens 改變焦距)</td>
+          <td><a href="ch01-optics-sensor.html">Ch01</a></td>
+        </tr>
+        <tr>
+          <td><strong>MIPI CSI-2</strong></td>
+          <td>—</td>
+          <td>sensor↔SoC 高速差分介面,2~4 lanes × 1.5~4.5 Gbps/lane;<strong>頻寬瓶頸</strong></td>
+          <td><a href="ch03-mipi-csi2.html">Ch03</a></td>
+        </tr>
+        <tr>
+          <td><strong>DMA-buf</strong></td>
+          <td>—</td>
+          <td>Linux zero-copy buffer 共享,sensor→ISP→encoder 不用 memcpy</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td><strong>ZSL</strong></td>
+          <td>Zero Shutter Lag</td>
+          <td>取景時就一直存 raw 到 ring buffer,按快門當下取最近的那批</td>
+          <td>本章 §3</td>
+        </tr>
+        <tr>
+          <td><strong>3A</strong></td>
+          <td>AE + AF + AWB</td>
+          <td>Auto Exposure / Focus / White Balance 三條獨立的回授迴路</td>
+          <td><a href="ch05-3a-algorithms.html">Ch05</a></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="tech-callout">
+      <div class="ct-label">順序背後的物理邏輯(記這個就夠了)</div>
+      <ul>
+        <li><strong>BLC 永遠在第一步</strong>——後面所有運算都是線性乘法,如果 0 不是真的 0,誤差會被放大</li>
+        <li><strong>LSC 要在 demosaic 之前</strong>——shading 是 per-channel 偏差,要在 Bayer domain 校正</li>
+        <li><strong>Demosaic 要在 CCM 之前</strong>——CCM 是 3×3 矩陣乘,需要 R/G/B 三色齊全</li>
+        <li><strong>NR / sharpen 在後端</strong>——這些跟「內容」有關,需要先有乾淨色彩才能談</li>
       </ul>
     </div>
   </div>
@@ -348,7 +485,7 @@
         <div class="action-line">
           <span class="num">4</span>
           <span class="arrow">→</span>
-          <span><strong>3A 是一個回授迴路</strong>:後端算統計值,前端去調 sensor 與 lens</span>
+          <span><strong>3A 是一個回授迴路</strong>:<em>前端 ISP 的 HW stats engine</em> 從 raw 採集統計值,<em>firmware/DSP</em> 跑演算法,再經 I²C 寫回 sensor 與 VCM</span>
         </div>
         <div class="action-line">
           <span class="num">5</span>
@@ -356,6 +493,64 @@
           <span><strong>Camera HAL3 + camx/chi-cdk</strong> 是 Qualcomm 平台必懂的字典</span>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 06 · 講稿練習</div>
+    <h2>面試白板題 <em>30 秒 raw → display 講稿</em></h2>
+    <p class="lead">
+      面試很容易被要求<strong>「在白板上畫一下 camera pipeline」</strong>。下面這段是一個 30 秒版本的講稿——
+      不是要你背下來,而是讓你練到能「邊畫邊講」、把上面表格裡所有縮寫的順序串起來。
+      畫一個簡單的方塊圖(sensor → 前端 ISP → DRAM → 後端 ISP → encoder/display),
+      講到對應的方塊時用手指點一下,效果最好。
+    </p>
+
+    <div class="scenario-card">
+      <div class="label">Script · 30 秒講稿(從 raw 到 display)</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span><em>「Sensor 出來的是 Bayer raw——每個 pixel 只有 R/G/B 其中一色。」</em></span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span><em>「但 raw 不是『光的真實值』,所以前端 ISP 先做三件清理:<strong>BLC</strong> 把暗電流 offset 減掉,<strong>LSC</strong> 把鏡頭邊角暗角拉回來,<strong>DPC</strong> 把壞點補掉。」</em></span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span><em>「有了乾淨 raw,<strong>demosaic</strong> 把 1 通道 Bayer 插值成 3 通道 RGB,這時候才有完整三色可以做 <strong>WB</strong> 跟 <strong>CCM</strong>,把 sensor RGB 校正到 sRGB 色域。」</em></span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span><em>「寫進 DRAM 之前通常已經是 YUV 縮圖了——這是<strong>省 DRAM 頻寬</strong>的關鍵設計,也是前後端 ISP 切兩段的原因。」</em></span>
+        </div>
+        <div class="action-line">
+          <span class="num">5</span>
+          <span class="arrow">→</span>
+          <span><em>「後端 ISP 再做 <strong>tone mapping</strong>、<strong>NR</strong>、<strong>sharpen</strong>,最後分流到 encoder 跟 display。順帶一提,<strong>3A 統計值是前端 ISP 的 stats engine 採集</strong>,DMA 給 firmware/DSP 跑演算法後,經 I²C 回授去調 sensor 曝光與 VCM 焦距。」</em></span>
+        </div>
+        <div class="action-line">
+          <span class="num">6</span>
+          <span class="arrow">→</span>
+          <span><em>「如果是拍照,還會多走一條 <strong>multi-frame 路徑</strong>——從 ZSL ring buffer 取最近幾張 raw,做 HDR 或 MFNR 合成。」</em></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">講稿練習建議</div>
+      <ul>
+        <li><strong>計時練</strong>——目標 30 秒講完,超過代表細節太多;少於 20 秒代表骨架沒打到</li>
+        <li><strong>「為什麼」要能跟答</strong>:面試官常會打斷問「為什麼 BLC 是第一步?」、「為什麼前後端要切兩段?」——上一節「順序背後的物理邏輯」就是答案</li>
+        <li><strong>準備 follow-up</strong>:從這段講稿能自然延伸到 <a href="ch12-hw-perf-power.html">Ch12 硬體層 perf/power trade-off</a>(「那這條 pipeline 在硬體上怎麼省電?」)——這是 camera performance 職位的真實切入點</li>
+      </ul>
     </div>
   </div>
 </section>

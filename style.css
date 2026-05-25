@@ -368,6 +368,8 @@ h1, h2, h3, h4 {
   line-height: 1.85;
   color: var(--ink-2);
   overflow-x: auto;
+  white-space: pre;
+  tab-size: 2;
 }
 
 .flow-illustration .arrow-line { color: var(--accent); }

@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>硬體層 Perf/Power Trade-off — Camera Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Noto+Serif+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>(function(){try{var s=parseInt(localStorage.getItem('webatlas_text_size'),10);var a=[15,16,17,18,19,20,22,24];if(!isNaN(s)&&s>=0&&s<a.length){document.documentElement.style.setProperty('--reader-fz',a[s]+'px');}}catch(e){}})();</script>
+<link rel="stylesheet" href="style.css">
+<script defer src="reader.js"></script>
+</head>
+<body>
+
+<header class="top-bar">
+  <div class="container">
+    <div class="top-bar-inner">
+      <a href="index.html" class="logo">⬢ Camera Atlas</a>
+      <nav>
+        <a href="index.html">總目錄</a>
+        <a href="ch12-hw-perf-power.html" class="active">硬體層 Perf/Power</a>
+        <a href="glossary.html">詞彙表</a>
+      </nav>
+      <span>Vol.12</span>
+      <div class="font-control" role="group" aria-label="字體大小">
+        <button type="button" class="fz-btn" data-action="dec" aria-label="縮小字體">A<span class="fz-sym">−</span></button>
+        <button type="button" class="fz-btn" data-action="inc" aria-label="放大字體">A<span class="fz-sym">+</span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="kicker">
+      <span class="dot"></span>
+      Vol. 12 · HW Architecture & Perf-Power Trade-offs
+    </div>
+    <h1>硬體層看 ISP<br>SRAM 在哪、DRAM 多痛、<em>真正能優化什麼</em></h1>
+    <p class="hero-sub">
+      前面章節談的是 ISP <strong>演算法在做什麼</strong>。這一章換個視角:
+      把 ISP 攤平到 <strong>silicon + memory hierarchy</strong> 上,看每一個演算法節點背後的
+      SRAM 需求、DRAM 頻寬代價、以及 <em>performance engineer 真實能動的旋鈕</em>。
+      讀完之後,你看到一條 camera pipeline 不會只看到資料流,而是看到 <strong>memory traffic 與 power domain 的地形圖</strong>。
+    </p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 01 · Memory Hierarchy</div>
+    <h2>ISP 的記憶體階層 <em>三層,差兩個數量級</em></h2>
+    <p class="lead">
+      ISP 上跑的演算法<strong>形狀</strong>,根本上是被 memory hierarchy 塑造的。三層由近到遠:
+      <strong>register file</strong>(在 PE 旁邊)、<strong>on-chip SRAM</strong>(line/tile buffer)、
+      <strong>off-chip DRAM</strong>(系統共用 LPDDR)。每往外一層,<strong>能量代價跳一個數量級</strong>。
+    </p>
+
+    <div class="diagram">
+      <div class="diagram-title">▸ Memory hierarchy 的能量與頻寬</div>
+      <svg viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg">
+        <!-- Pyramid layers -->
+        <polygon points="320,40 480,40 530,100 270,100" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="400" y="65" fill="#2a2520" font-family="Source Serif 4" font-size="14" font-weight="600" text-anchor="middle">Register file</text>
+        <text x="400" y="82" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">~ 0.1 pJ/bit · 數 KB · &gt; 1 TB/s</text>
+
+        <polygon points="270,100 530,100 590,180 210,180" fill="#f3ede2" stroke="#d9cfbf"/>
+        <text x="400" y="130" fill="#2a2520" font-family="Source Serif 4" font-size="14" font-weight="600" text-anchor="middle">On-chip SRAM (line / tile buffer)</text>
+        <text x="400" y="150" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">~ 1–2 pJ/bit · ISP 內 1–4 MB · 100s GB/s</text>
+        <text x="400" y="167" fill="#8b3a1e" font-family="Source Serif 4" font-size="10" font-style="italic" text-anchor="middle">前端 ISP 主場</text>
+
+        <polygon points="210,180 590,180 660,280 140,280" fill="#faf7f2" stroke="#d9cfbf" stroke-dasharray="3,2"/>
+        <text x="400" y="210" fill="#2a2520" font-family="Source Serif 4" font-size="14" font-weight="600" text-anchor="middle">Off-chip DRAM (LPDDR5/5x)</text>
+        <text x="400" y="230" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">~ 50–100 pJ/bit · GB 級 · ~ 50 GB/s peak(全系統共用)</text>
+        <text x="400" y="248" fill="#8b3a1e" font-family="Source Serif 4" font-size="10" font-style="italic" text-anchor="middle">multi-frame / HDR / ZSL ring buffer 都住這</text>
+        <text x="400" y="265" fill="#2d6a3e" font-family="Source Serif 4" font-size="10" font-style="italic" text-anchor="middle">PMQoS / DVFS / EMI bandwidth 在這層介入</text>
+
+        <!-- Side arrow showing cost grows -->
+        <line x1="100" y1="60" x2="100" y2="260" stroke="#8b3a1e" stroke-width="1.5" marker-end="url(#a12)"/>
+        <text x="80" y="160" fill="#8b3a1e" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle" transform="rotate(-90 80 160)">能量 / 延遲 ↑</text>
+
+        <line x1="700" y1="60" x2="700" y2="260" stroke="#2d6a3e" stroke-width="1.5" marker-end="url(#a12g)"/>
+        <text x="720" y="160" fill="#2d6a3e" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle" transform="rotate(90 720 160)">容量 ↑</text>
+
+        <defs>
+          <marker id="a12" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#8b3a1e"/>
+          </marker>
+          <marker id="a12g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#2d6a3e"/>
+          </marker>
+        </defs>
+      </svg>
+      <p class="diagram-caption">能量數量級:DRAM access 大約是 on-chip SRAM 的 <strong>50–100 倍</strong>。這個比例不是抽象學術數字,它<em>直接決定了 ISP 的演算法形狀</em>——能在 SRAM 上 streaming 完的,絕不繞 DRAM 一圈。</p>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">記住這一句,後面所有 trade-off 都從它推導</div>
+      <ul>
+        <li><strong>DRAM access ≈ 50–100× SRAM access(就能量而言)</strong></li>
+        <li>所以「<em>能不能避免一次 DRAM round-trip</em>」就是 ISP HW 設計最大的優化目標</li>
+        <li>而能不能避免,完全看你<strong>SRAM 夠不夠裝下你要處理的 window</strong></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 02 · 處理粒度</div>
+    <h2>Line / Tile / Frame <em>三種粒度,三種代價</em></h2>
+    <p class="lead">
+      ISP 處理一張影像,有<strong>三種粒度</strong>可以選——每種對 SRAM 與 DRAM 的需求不同,
+      也決定了能跑哪些演算法。理解這三種粒度,你就懂為什麼前端 ISP 能 streaming、
+      後端 ISP 為什麼一定要碰 DRAM、tile mode 是用來折衷什麼的。
+    </p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>粒度</th>
+          <th>SRAM 需求</th>
+          <th>DRAM round-trip</th>
+          <th>能跑哪些演算法</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Line-based</strong><br><em>(streaming)</em></td>
+          <td>幾條 line(~ kernel height)</td>
+          <td class="yes">不必</td>
+          <td>BLC、LSC、DPC、demosaic、spatial NR(小 kernel)</td>
+        </tr>
+        <tr>
+          <td><strong>Tile-based</strong></td>
+          <td>1 個 tile(例如 256×256)</td>
+          <td class="no">每個 tile 一次</td>
+          <td>大 kernel NR、LTM(local tone mapping)、複雜後處理</td>
+        </tr>
+        <tr>
+          <td><strong>Frame-based</strong></td>
+          <td>需要整張前一幀</td>
+          <td class="no">每幀必走</td>
+          <td>MFNR、HDR merge、temporal NR、EIS warp</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="tech-callout">
+      <div class="ct-label">為什麼前端 ISP 能 streaming(這是省電關鍵)</div>
+      <ul>
+        <li>前端的演算法 kernel 都很小(<strong>3×3 ~ 9×9</strong>),只要 SRAM 裝得下幾條 line 就能滑動處理</li>
+        <li>Sensor 把 raw 一行一行送進來,ISP 一行一行處理、一行一行送出去——<strong>整條前端不需要回頭看 DRAM</strong></li>
+        <li>這也是為什麼 <a href="ch02-pipeline-overview.html">Ch02 §2</a> 講「前端 ISP 是每張必做、後端可選擇」——前端做的事 SRAM 就能 handle,代價極低</li>
+        <li>後端要跨 tile / 跨 frame,SRAM 不夠裝,只能 DRAM round-trip;這也是後端為什麼比較貴</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 03 · 每個節點的 SRAM 開銷</div>
+    <h2>Pipeline 節點 × SRAM 需求 <em>面試經典題</em></h2>
+    <p class="lead">
+      把 <a href="ch02-pipeline-overview.html">Ch02 名詞速查</a> 裡的每個節點,標上「需要多少 SRAM」、「能不能 streaming」。
+      這張表能讓你在面試時被問<strong>「為什麼 demosaic 比 BLC 貴 100 倍 SRAM?」</strong>時,30 秒內答得出來。
+    </p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>節點</th>
+          <th>典型 SRAM 需求</th>
+          <th>能 streaming?</th>
+          <th>為什麼</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>BLC</strong></td>
+          <td>~ 0(per-pixel offset)</td>
+          <td class="yes">可</td>
+          <td>每個 pixel 獨立減常數,不需要鄰居</td>
+        </tr>
+        <tr>
+          <td><strong>LSC</strong></td>
+          <td>tiny(17×13 ~ 33×25 grid + 內插暫存)</td>
+          <td class="yes">可</td>
+          <td>gain map 預存 SRAM,即時 bilinear 內插</td>
+        </tr>
+        <tr>
+          <td><strong>DPC</strong></td>
+          <td>3–5 lines(3×3 ~ 5×5 kernel)</td>
+          <td class="yes">可</td>
+          <td>看周圍 8 個 pixel 中位數即可</td>
+        </tr>
+        <tr>
+          <td><strong>Demosaic</strong></td>
+          <td>5–9 lines(edge-aware kernel)</td>
+          <td class="yes">可</td>
+          <td>需要 5×5 或 7×7 鄰域才能判斷邊緣方向</td>
+        </tr>
+        <tr>
+          <td><strong>WB / CCM / Gamma</strong></td>
+          <td>~ 0(per-pixel matrix/LUT)</td>
+          <td class="yes">可</td>
+          <td>純 per-pixel 乘法或查表</td>
+        </tr>
+        <tr>
+          <td><strong>Spatial NR</strong><br>(bilateral / NLM)</td>
+          <td>5–25 lines(kernel 越大效果越好)</td>
+          <td class="yes">可(line-mode)</td>
+          <td>kernel 大小直接吃 SRAM,設計時 trade off 畫質 vs SRAM 面積</td>
+        </tr>
+        <tr>
+          <td><strong>LTM</strong><br>(Local Tone Mapping)</td>
+          <td>1 個 tile(~ 256×256)</td>
+          <td class="no">tile-mode</td>
+          <td>需要看「區域」統計才能做局部曝光,不可能只看一條 line</td>
+        </tr>
+        <tr>
+          <td><strong>Temporal NR</strong></td>
+          <td>整張前幀 → DRAM</td>
+          <td class="no">frame-mode</td>
+          <td>SRAM 裝不下整張,只能放 DRAM。<strong>這就是後端 DRAM 流量的主源</strong></td>
+        </tr>
+        <tr>
+          <td><strong>MFNR / HDR Merge</strong></td>
+          <td>多張完整 raw → DRAM</td>
+          <td class="no">frame-mode</td>
+          <td>對齊 + merge 需要同時看 N 張,SRAM 完全不可能</td>
+        </tr>
+        <tr>
+          <td><strong>EIS warp</strong></td>
+          <td>整張 + 周邊冗餘 → DRAM</td>
+          <td class="no">frame-mode</td>
+          <td>warp 映射可能讓任意 source pixel 跑到任意 dest 位置</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="tech-callout">
+      <div class="ct-label">這張表的三個 takeaway</div>
+      <ul>
+        <li><strong>raw-domain 的東西基本都能 streaming</strong>——這就是前端 ISP 「便宜」的根源</li>
+        <li><strong>「需要看區域」或「需要跨幀」就被迫離開 SRAM</strong>——LTM、temporal NR、HDR merge、MFNR、EIS 都是這類</li>
+        <li>所以「<em>把多少東西做進前端 ISP</em>」是 silicon 架構師的核心 trade-off:做進去佔 SRAM/silicon area,做不進去走 DRAM 燒電</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 04 · 頻寬數學</div>
+    <h2>把 DRAM 流量算給你看 <em>數字會嚇你一跳</em></h2>
+    <p class="lead">
+      面試常被問<strong>「你怎麼估算這個 use case 的 DRAM 頻寬?」</strong>——這不是難題,只要會單位轉換。
+      下面拿一個典型場景算給你看,讓你習慣這個量級。
+    </p>
+
+    <div class="flow-illustration">
+<span class="comment"># Use case: 50MP sensor @ 30fps 10-bit Bayer raw</span>
+
+  Sensor stream:
+    50,000,000 px × 10 bit × 30 fps
+    = 15,000,000,000 bit/s
+    = <span class="key">~ 1.75 GB/s</span>          <span class="comment"># 只是 sensor → CSI,還沒到 DRAM</span>
+
+  Front-end ISP 寫 DRAM(輸出 YUV420 縮成 4K):
+    3840 × 2160 × 1.5 byte × 30 fps
+    = <span class="key">~ 0.37 GB/s</span>          <span class="comment"># 已 demosaic + downscale,流量降一個數量級</span>
+
+  Back-end ISP 讀 DRAM(全幀):
+    0.37 GB/s(讀)+ 0.37 GB/s(再寫回)
+    = <span class="key">~ 0.74 GB/s</span>          <span class="comment"># round-trip 翻倍</span>
+
+  Temporal NR 額外讀前幀:
+    + 0.37 GB/s
+
+  Encoder 讀:
+    + 0.37 GB/s
+
+  <span class="warn">⚠ 光是 camera path 就吃掉 ~ 1.85 GB/s DRAM 流量</span>
+  <span class="warn">⚠ 還沒加上 display refresh、UI、AI 推論、其他 client</span>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">為什麼這個數字重要(這是你跨進 camera 的 PMQoS 視角)</div>
+      <ul>
+        <li>LPDDR5x peak 大概 50 GB/s,但 <strong>camera 通常只能拿 5–15 GB/s 的 share</strong>(其他 client:CPU、GPU、display、NPU、modem)</li>
+        <li>所以「<em>DRAM 頻寬</em>」是 system-level constraint——這正是你在 MTK 做 PMQoS 時處理的同一個東西(EMI bandwidth)</li>
+        <li>Camera + display + encoder 同時跑就會出現 <strong>memory contention</strong>——某個 client 拿不到頻寬,就會 frame drop 或 underrun</li>
+        <li>「房東/房客」的比喻搬過來:DRAM 頻寬就是房東,camera/display/encoder/NPU 都是房客;PMQoS 在這層做仲裁</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 05 · 優化技術</div>
+    <h2>Performance engineer 真實能動的旋鈕 <em>(6 個)</em></h2>
+    <p class="lead">
+      理解 trade-off 之後,真正能做的優化大致就 <strong>6 類</strong>。
+      Camera performance 工程師日常 80% 的工作,就是在這 6 個旋鈕之間找最佳平衡點。
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-marker">1</div>
+        <div class="step-content">
+          <h3>Buffer Compression(Qualcomm UBWC / Arm AFBC)</h3>
+          <div class="step-sub">省 DRAM 頻寬最直接的招</div>
+          <p>
+            把寫進 DRAM 的影像 buffer <strong>無損壓縮</strong>(typical <strong>1.5–2×</strong>),
+            或<strong>有損壓縮</strong>(2–4×)。Qualcomm 的 <strong>UBWC(Universal Bandwidth Compression)</strong>
+            是平台級的壓縮格式,camera、display、GPU、encoder 都認得——意思是中間任何一段 round-trip 都省頻寬。
+            這是 camera 工程師接觸 Qualcomm 平台<strong>幾乎必碰</strong>的東西。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">2</div>
+        <div class="step-content">
+          <h3>Pipeline Fusion(on-the-fly)</h3>
+          <div class="step-sub">把多個節點串成「跳過 DRAM」</div>
+          <p>
+            原本是「ISP 寫 DRAM → 後處理讀回 → 再寫 → encoder 讀」。
+            Fusion 把多個節點<strong>直接串接</strong>,中間用 SRAM/FIFO,跳過 DRAM round-trip。
+            最常見:<strong>前端 ISP → 後端 ISP → encoder</strong> 串成 streaming,
+            或 <strong>ISP → display</strong> 直連(preview low-latency)。
+            代價:fusion 後的 pipeline <strong>不能 stall</strong>,任何一段慢就會 back-pressure 整條鏈。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">3</div>
+        <div class="step-content">
+          <h3>Strip / Tile Mode</h3>
+          <div class="step-sub">大圖切塊處理,用 SRAM 換 DRAM 頻寬</div>
+          <p>
+            一張 50MP 影像 SRAM 裝不下,但切成 <strong>N 條 strip</strong> 或 <strong>N×M tiles</strong> 就能。
+            代價:tile 邊界需要 <strong>overlap(halo)</strong> 才能跑大 kernel(否則接縫處有 artifact),
+            這個 halo 重覆讀,反而<strong>增加 DRAM 流量</strong>。所以 strip 寬度是個 trade-off——
+            太窄 halo 比例高、太寬 SRAM 裝不下。Camera 工程師常被叫去 tune 這個。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">4</div>
+        <div class="step-content">
+          <h3>Clock Gating(per ISP block)</h3>
+          <div class="step-sub">idle 的 IP 直接停 clock</div>
+          <p>
+            ISP 內部分成很多 sub-block(BLC engine、LSC engine、demosaic engine、NR engine…)。
+            preview mode 用不到 LTM / HDR / MFNR,就把那些 block 的 clock 關掉,
+            dynamic power 立刻歸零。<strong>Wake-up cost 極低</strong>(ns 級),
+            所以 frame interval 的 gap 也能 gate。這是你在 MTK 做 PMQoS 應該已經很熟的招,搬過來幾乎無痛。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">5</div>
+        <div class="step-content">
+          <h3>Power Gating(整個 IP 斷電)</h3>
+          <div class="step-sub">leakage 也省,但 wake-up 較貴</div>
+          <p>
+            不只關 clock,連電源都切掉——<strong>leakage power 也省</strong>。代價:wake-up cost 上升到 <strong>μs 級</strong>
+            (要等電壓穩、register 重新 init)。所以只在「明確會 idle 較久」時才值得——
+            例如 video record stop 之後、camera app 切到背景。
+            判斷時機就是 performance engineer 的工作。
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-marker">6</div>
+        <div class="step-content">
+          <h3>DVFS for ISP / DRAM(workload-aware)</h3>
+          <div class="step-sub">不必全速跑就降頻</div>
+          <p>
+            ISP / DRAM 都支援 DVFS。<strong>Preview 30fps 的負載</strong>遠低於 <strong>capture burst</strong> 或 <strong>4K@60 錄影</strong>,
+            就該對應跑低頻 / 低壓。判斷依據:<strong>frame budget</strong>(33ms @ 30fps)還剩多少,
+            或 SRAM/DRAM 的 backlog 深度。Camera HAL 通常會把這個 hint 透過 PMQoS / interconnect QoS 送下去——
+            這條<em>正好是你 PMQoS 經驗的延伸戰場</em>。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 06 · Trade-off Matrix</div>
+    <h2>六個旋鈕的代價 <em>面試時要會脫口而出</em></h2>
+    <p class="lead">
+      上面 6 種優化技術,每個都<strong>不是免費的</strong>。下表把代價列出來——
+      面試時你被問「那個方法為什麼不總是用?」,答案就在這。
+    </p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>技術</th>
+          <th>主要省什麼</th>
+          <th>代價</th>
+          <th>誰決定要不要用</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>UBWC / AFBC</strong></td>
+          <td>DRAM 頻寬(1.5–4×)</td>
+          <td>Silicon area(壓/解壓邏輯)、有損版本損畫質</td>
+          <td>SoC 架構師(平台層 default on)</td>
+        </tr>
+        <tr>
+          <td><strong>Pipeline fusion</strong></td>
+          <td>DRAM round-trip、latency</td>
+          <td>失去 buffer 容錯;一段慢全條鏈 back-pressure</td>
+          <td>Camera HAL / driver 工程師</td>
+        </tr>
+        <tr>
+          <td><strong>Strip / Tile</strong></td>
+          <td>SRAM 面積(不必裝整張)</td>
+          <td>Halo 區重覆讀,反增 DRAM 流量;tune 寬度需經驗</td>
+          <td>ISP firmware / tuning 工程師</td>
+        </tr>
+        <tr>
+          <td><strong>Clock gating</strong></td>
+          <td>Dynamic power(可達 30–60%)</td>
+          <td>幾乎無代價(ns 級 wake-up)</td>
+          <td>HW 預設 + SW hint</td>
+        </tr>
+        <tr>
+          <td><strong>Power gating</strong></td>
+          <td>Dynamic + leakage</td>
+          <td>μs 級 wake-up;狀態要重 init</td>
+          <td>Power policy 工程師</td>
+        </tr>
+        <tr>
+          <td><strong>DVFS</strong></td>
+          <td>Power(電壓 × 頻率²)</td>
+          <td>降太多會 miss frame budget,要 workload prediction</td>
+          <td>Performance / power 工程師(<em>你</em>)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="tech-callout">
+      <div class="ct-label">把這張表記成「四象限」</div>
+      <ul>
+        <li><strong>省頻寬</strong>(對抗 DRAM 流量):UBWC、Fusion、Strip 寬度</li>
+        <li><strong>省 dynamic power</strong>(對抗 active 時的開銷):Clock gating、DVFS</li>
+        <li><strong>省 leakage</strong>(對抗待機時的開銷):Power gating</li>
+        <li><strong>共同主軸</strong>:都是用 <em>架構複雜度 / silicon area / 開發複雜度</em> 換 power 或 BW</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 07 · 面試級綜合題</div>
+    <h2>「給你一個 use case <em>你會怎麼省 power?</em>」</h2>
+    <p class="lead">
+      Camera performance 面試最愛問這類開放題。下面拿一個典型題目示範答題框架——
+      <strong>順序很重要</strong>,要從「先確認需求」開始,而不是直接跳到優化技巧。
+    </p>
+
+    <div class="scenario-card">
+      <div class="label">Q · 4K@60fps 錄影 use case 跑超功耗,你從硬體角度會看哪幾個地方?</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span><strong>先量,再猜</strong>。打開 power/perf profiler 看哪個 block 燒最多——是 ISP、encoder、DRAM、還是 sensor stream?<em>不要先腦補</em>。</span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span><strong>確認 DRAM round-trip 次數</strong>。同一張 buffer 被讀寫幾次?有沒有能 fusion 掉的中間落地?(Sec 05 §2)</span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span><strong>檢查 UBWC 是否開啟</strong>。Camera→encoder 之間的 buffer 走 compressed format 沒?(Sec 05 §1)</span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span><strong>ISP/DRAM clock 是否 over-provisioned</strong>。4K@60 frame budget = 16.7ms,目前 ISP 跑完用多久?如果 8ms,代表 clock 開太高 → DVFS 降一檔。(Sec 05 §6)</span>
+        </div>
+        <div class="action-line">
+          <span class="num">5</span>
+          <span class="arrow">→</span>
+          <span><strong>有沒有 path 不必要在跑</strong>。例如 preview path 在 video 期間還在跑——浪費 sensor stream + ISP power。Camera HAL 該關。</span>
+        </div>
+        <div class="action-line">
+          <span class="num">6</span>
+          <span class="arrow">→</span>
+          <span><strong>檢查 memory contention</strong>。NPU/GPU/display 是否跟 camera 搶 DRAM 頻寬?PMQoS 仲裁有沒有調好?(這正是<em>你最熟的</em>)</span>
+        </div>
+        <div class="action-line">
+          <span class="num">7</span>
+          <span class="arrow">→</span>
+          <span><strong>最後才動畫質</strong>。如果以上都掃過還超標,才考慮降 sensor binning、關 LTM、降 NR kernel——這些有 trade-off,要 PM 確認。</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tech-callout">
+      <div class="ct-label">答這題你的差異化在哪裡(<em>對你個人</em>)</div>
+      <ul>
+        <li><strong>第 1 步</strong>「先量再猜」——你 GenAI 自動化追蹤功耗的經驗能直接搬,談到「我會建一個 dashboard 把這幾個 metric 拉出來」就贏一半</li>
+        <li><strong>第 4、6 步</strong> DVFS 與 PMQoS 仲裁——這是<em>你的本業</em>,別只說「會用」,要說「PMQoS 從 1ms polling 改 event-trigger 那次,正好處理 idle breaker 的問題」</li>
+        <li><strong>第 7 步</strong> 「最後才動畫質」——這個順序代表你<em>懂 trade-off 的優先級</em>,是 senior 工程師的思維 signal</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-tag">Section 08 · 本章重點回顧</div>
+    <h2>把硬體層帶進 camera <em>記這幾件事</em></h2>
+
+    <div class="scenario-card">
+      <div class="label">硬體層 perf/power 的 5 個核心觀念</div>
+      <div class="actions">
+        <div class="action-line">
+          <span class="num">1</span>
+          <span class="arrow">→</span>
+          <span><strong>DRAM access ≈ 50–100× SRAM access</strong>。所有 ISP 架構決策都從這個比例推導</span>
+        </div>
+        <div class="action-line">
+          <span class="num">2</span>
+          <span class="arrow">→</span>
+          <span><strong>Line / Tile / Frame 三種粒度</strong>:能 streaming 的不繞 DRAM,需要看區域/跨幀的就被迫繞</span>
+        </div>
+        <div class="action-line">
+          <span class="num">3</span>
+          <span class="arrow">→</span>
+          <span><strong>前端 ISP 便宜、後端 ISP 貴</strong>——根源在 SRAM 裝不裝得下處理 window</span>
+        </div>
+        <div class="action-line">
+          <span class="num">4</span>
+          <span class="arrow">→</span>
+          <span><strong>6 個優化旋鈕</strong>:UBWC、Fusion、Strip、Clock gating、Power gating、DVFS。每個都有代價,要會講代價</span>
+        </div>
+        <div class="action-line">
+          <span class="num">5</span>
+          <span class="arrow">→</span>
+          <span><strong>DRAM 頻寬就是 PMQoS 的延伸戰場</strong>——camera 工程師對 PMQoS 是黑盒,你不是</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="chapter-nav">
+  <div class="container">
+    <div class="chapter-nav-grid">
+      <a href="ch11-performance-glasses.html" class="nav-card prev">
+        <div class="label">Prev</div>
+        <h4>Performance 度量與智慧眼鏡取捨</h4>
+        <p>三軸 trade-off、五種 latency、智慧眼鏡 vs 手機。</p>
+      </a>
+      <a href="glossary.html" class="nav-card next">
+        <div class="label">附錄</div>
+        <h4>詞彙表</h4>
+        <p>所有縮寫與術語的速查表。</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Camera Atlas · Complete Edition
+  </div>
+</footer>
+
+</body>
+</html>

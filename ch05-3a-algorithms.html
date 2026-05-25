@@ -51,9 +51,9 @@
     <div class="section-tag">Section 01 · 統計引擎</div>
     <h2>3A 的共同前提 <em>ISP 必須先「看懂這張圖」</em></h2>
     <p class="lead">
-      3A 演算法本身不直接看影像——那資料量太大。ISP 硬體會把每張圖<strong>切成 grid</strong>
+      3A 演算法本身不直接看影像——那資料量太大。<strong>前端 ISP 內</strong>的 stats engine(Qualcomm 平台上住在 <code>IFE</code> — Image Front-End)會在 raw 流過的當下,把每張圖<strong>切成 grid</strong>
       (例如 64×48 = 3072 個 zone),每個 zone 算一組統計值:亮度、各色平均、對比度、histogram。
-      演算法吃的就是這幾 KB 的<strong>statistics</strong>,而不是 50MB 的 raw。
+      演算法吃的就是這幾 KB 的<strong>statistics</strong>,而不是 50MB 的 raw。<strong>注意切分</strong>:stats 採集是 HW(前端 ISP 內),演算法是 SW(camera firmware / 專用 DSP),控制下發是 I²C 寫 sensor 與 VCM。
     </p>
 
     <div class="diagram">
@@ -103,7 +103,7 @@
         <text x="695" y="202" fill="#2a2520" font-family="Source Serif 4" font-size="12" font-weight="600" text-anchor="middle">AWB algorithm</text>
         <text x="695" y="220" fill="#5a4f44" font-family="Source Serif 4" font-size="10" text-anchor="middle">→ R/B gain</text>
 
-        <text x="400" y="265" fill="#5a4f44" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">由硬體完成,軟體只讀 stats(幾 KB)</text>
+        <text x="400" y="265" fill="#5a4f44" font-family="Source Serif 4" font-size="11" font-style="italic" text-anchor="middle">stats engine 住在前端 ISP(QC: IFE)· 由 HW 完成 · SW 只讀 stats(幾 KB)</text>
 
         <defs>
           <marker id="aa" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
@@ -111,7 +111,7 @@
           </marker>
         </defs>
       </svg>
-      <p class="diagram-caption">每張 frame 經過硬體 stats engine 萃取 grid 統計值,再交給三個獨立的軟體演算法。三者共享同一份 stats,但決策互相影響(例如 AE 改了曝光,AWB 統計就要重算)。</p>
+      <p class="diagram-caption">每張 frame 由<strong>前端 ISP 內</strong>的 HW stats engine 在 raw/Bayer domain 即時萃取 grid 統計值(Qualcomm 把這個 IP 放在 IFE,MediaTek 放在 P1),再 DMA 給三個獨立的軟體演算法(在 firmware 或專用 3A DSP 上跑)。三者共享同一份 stats,但決策互相影響(例如 AE 改了曝光,AWB 統計就要重算)。</p>
     </div>
   </div>
 </section>
